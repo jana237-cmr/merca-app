@@ -89,6 +89,10 @@ async function apiAddRole(token, dto){
   if(!res.ok) throw new Error("Impossible d'activer ce rôle");
   return res.json();
 }
+// Réveille le serveur dès l'ouverture de l'app (plan gratuit Render = mise en veille
+// après inactivité, jusqu'à 50-90s pour redémarrer). Appelée tout de suite au chargement,
+// pendant que l'utilisateur remplit le formulaire, pour que le serveur soit déjà prêt.
+function apiWakeUp(){ fetch(`${API_BASE}/products`).catch(()=>{}); }
 
 const CATS=["Tous","Téléphones","Informatique","Électronique","Meubles","Vêtements","Chaussures"];
 const PRO_DOMAINES=["Juridique","Santé","Beauté","Réparation","Éducation","Consulting","Informatique","Autre"];
@@ -185,6 +189,7 @@ export default function App(){
   const [kycModal,setKycModal]=useState(null); const [kycDoc,setKycDoc]=useState("");
 
   // ---- Chargement / sauvegarde ----
+  useEffect(()=>{ apiWakeUp(); },[]); // réveille le serveur dès l'ouverture de l'app
   useEffect(()=>{ (async()=>{
     try{
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
@@ -537,7 +542,7 @@ export default function App(){
 
           {!!authError && <Text style={{color:"#e74c3c",marginTop:8,textAlign:"center"}}>{authError}</Text>}
           <TouchableOpacity style={styles.buy5D} onPress={startOtp} disabled={authLoading}>
-            <Text style={styles.buy5DT}>{authLoading ? "Envoi du code..." : "Recevoir mon code par SMS"}</Text>
+            <Text style={styles.buy5DT}>{authLoading ? "Envoi du code... (jusqu'à 1 min la 1ère fois, le serveur se réveille)" : "Recevoir mon code par SMS"}</Text>
           </TouchableOpacity>
           </>
           ) : (
