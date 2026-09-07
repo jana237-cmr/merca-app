@@ -250,7 +250,8 @@ export default function App(){
     if(regRole && !regExtra.trim()) return Alert.alert("Erreur", `Le champ "${ROLES_INFO[regRole].champ}" est requis`);
     setAuthError(""); setAuthLoading(true);
     try{
-      await apiRequestOtp(regPhone.trim());
+      const r = await apiRequestOtp(regPhone.trim());
+      if(r && r.devCode) setOtpCode(r.devCode); // phase de test : code auto-rempli, pas de vrai SMS envoyé
       setOtpStep("code");
     }catch(e){ setAuthError(e.message); }
     setAuthLoading(false);
@@ -542,7 +543,7 @@ export default function App(){
           ) : (
           <View style={[styles.card5DLarge,{backgroundColor:T.card, marginTop:16}]}>
             <Text style={[styles.cardTitle5D,{color:T.text}]}>Code envoyé au {regPhone}</Text>
-            <Text style={styles.ruleD5D}>⚠️ SIMULATION TEST : aucun vrai SMS n'est encore envoyé. Le code à 6 chiffres apparaît dans les journaux (logs) du serveur sur Render.</Text>
+            <Text style={styles.ruleD5D}>⚠️ SIMULATION TEST : aucun vrai SMS n'est encore envoyé. Le code ci-dessous a été rempli automatiquement pour tester.</Text>
             <TextInput value={otpCode} onChangeText={setOtpCode} placeholder="Code à 6 chiffres" keyboardType="number-pad" maxLength={6} style={styles.input5D}/>
             {!!authError && <Text style={{color:"#e74c3c",marginTop:8,textAlign:"center"}}>{authError}</Text>}
             <TouchableOpacity style={styles.buy5D} onPress={confirmOtp} disabled={authLoading}>
