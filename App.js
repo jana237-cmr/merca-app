@@ -108,6 +108,23 @@ const ROLES_INFO = {
   pro:{ label:"Employé Pro", icon:"🧑‍💼", color:"#8B5CF6", desc:"Vendre un service, dans n'importe quel domaine, depuis un bureau", champ:"Nom du bureau" },
 };
 
+// ---- Identité visuelle MERCA : couleurs de marque + icônes de signalisation
+// par rôle, à la place d'anciennes photos génériques (plus fiable, plus rapide,
+// et plus reconnaissable qu'une photo de stock qui ne charge pas toujours) ----
+const BRAND = "#FF6B35"; // orange MERCA - accueil, connexion
+const BANNERS = {
+  home:{ color:BRAND, icon:"🛍️" },
+  auth:{ color:BRAND, icon:"🛍️" },
+  client:{ color:ROLES_INFO.client.color, icon:"👤" },
+  merchant:{ color:ROLES_INFO.commercant.color, icon:"🏪" },
+  courier:{ color:ROLES_INFO.livreur.color, icon:"🚚" },
+  pro:{ color:ROLES_INFO.pro.color, icon:"🧑‍💼" },
+  wallet:{ color:"#0EA5A5", icon:"💰" },
+  permuta:{ color:"#06B6D4", icon:"🔄" },
+  services:{ color:"#6366F1", icon:"🛎️" },
+  settings:{ color:"#374151", icon:"⚙️" },
+};
+
 const INITIAL_PRODUCTS = [
   {id:"p1",name:"iPhone X 64Go",price:95000,cat:"Téléphones",shop:"Merca Mobile",rating:4.7,stock:5,desc:"Bon état 88% - Yaoundé Bastos",ville:"Yaoundé",rayon:0.5,last:0,img:IMG.iphone},
   {id:"p2",name:"Samsung A54 128Go",price:85000,cat:"Téléphones",shop:"Merca Mobile",rating:4.8,stock:8,desc:"Neuf scellé",ville:"Yaoundé",rayon:1.2,last:0,img:IMG.samsung},
@@ -522,9 +539,9 @@ export default function App(){
     return (
       <SafeAreaView style={[styles.container,{backgroundColor:T.bg}]}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <ImageBackground source={{uri:IMG.hero_auth}} style={styles.hero5D} imageStyle={{borderRadius:24}}>
+          <Banner color={BANNERS.auth.color} icon={BANNERS.auth.icon} style={styles.hero5D} radius={24}>
             <View style={styles.hero5DOverlay}><Text style={styles.hero5DTitle}>Bienvenue sur MERCA</Text><Text style={styles.hero5DSub}>SIMULATION TEST - pas de vrai SMS envoyé</Text></View>
-          </ImageBackground>
+          </Banner>
 
           {otpStep==="form" && (
           <TouchableOpacity style={styles.guestBtn5D} onPress={continueAsGuest}>
@@ -591,13 +608,13 @@ export default function App(){
           </View>
           <TouchableOpacity style={styles.badge5D} onPress={()=>nav("settings")}><Text style={styles.badge5DT}>⚙️</Text></TouchableOpacity>
         </View>
-        <ImageBackground source={{uri:IMG.hero_home}} style={styles.hero5D} imageStyle={{borderRadius:24}}>
+        <Banner color={BANNERS.home.color} icon={BANNERS.home.icon} style={styles.hero5D} radius={24}>
           <View style={styles.hero5DOverlay}>
             <Text style={styles.hero5DTitle}>Yaoundé - Prix réel d'abord</Text>
             <Text style={styles.hero5DSub}>SIMULATION TEST - {R.SPLIT_LIVREUR}/{R.SPLIT_MARCHAND}/{R.SPLIT_MERCA}</Text>
             <View style={styles.search5D}><Text>🔎</Text><TextInput value={search} onChangeText={(t)=>{ setSearch(t); setShowAlternatives(false); }} placeholder="Tape produit exact..." placeholderTextColor="#999" style={styles.searchInput5D}/></View>
           </View>
-        </ImageBackground>
+        </Banner>
         {debouncedSearch!=='' && filteredExact.length>0 && !showAlternatives && (
           <View style={[styles.exactResult5D,{backgroundColor:T.card}]}>
             <Text style={styles.exactTitle}>✅ Produit trouvé - Prix réel d'abord</Text>
@@ -624,13 +641,13 @@ export default function App(){
     const ListFooter = (
       <View>
         <TouchableOpacity style={styles.serviceBanner5D} onPress={()=>nav("services")}>
-          <ImageBackground source={{uri:IMG.hero_services}} style={styles.gridImg5D} imageStyle={{borderRadius:18}}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>🧑‍💼 SERVICES PRO</Text><Text style={styles.gridSub5D}>Juridique, beauté, réparation, éducation...</Text></View></ImageBackground>
+          <Banner color={BANNERS.services.color} icon={BANNERS.services.icon} style={styles.gridImg5D} radius={18}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>🧑‍💼 SERVICES PRO</Text><Text style={styles.gridSub5D}>Juridique, beauté, réparation, éducation...</Text></View></Banner>
         </TouchableOpacity>
         <View style={styles.grid5D}>
-          <TouchableOpacity style={styles.gridItem5D} onPress={()=>nav("client")}><ImageBackground source={{uri:IMG.hero_client}} style={styles.gridImg5D} imageStyle={{borderRadius:18}}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>👤 CLIENT</Text><Text style={styles.gridSub5D}>{user.guest?"Invité":`${points}pts`}</Text></View></ImageBackground></TouchableOpacity>
-          <TouchableOpacity style={styles.gridItem5D} onPress={()=>nav("espaces")}><ImageBackground source={{uri:IMG.hero_merchant}} style={styles.gridImg5D} imageStyle={{borderRadius:18}}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>🧰 ESPACE</Text><Text style={styles.gridSub5D}>Vendre / Livrer</Text></View></ImageBackground></TouchableOpacity>
-          <TouchableOpacity style={styles.gridItem5D} onPress={()=>user.guest?requireAccount("accéder à PERMUTA"):nav("permuta")}><ImageBackground source={{uri:IMG.hero_permuta}} style={styles.gridImg5D} imageStyle={{borderRadius:18}}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>🔄 PERMUTA {user.guest?"🔒":""}</Text><Text style={styles.gridSub5D}>Simulation test</Text></View></ImageBackground></TouchableOpacity>
-          <TouchableOpacity style={styles.gridItem5D} onPress={()=>nav("settings")}><ImageBackground source={{uri:IMG.hero_pro}} style={styles.gridImg5D} imageStyle={{borderRadius:18}}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>⚙️ PARAMÈTRES</Text><Text style={styles.gridSub5D}>Compte, rôles, PIN</Text></View></ImageBackground></TouchableOpacity>
+          <TouchableOpacity style={styles.gridItem5D} onPress={()=>nav("client")}><Banner color={BANNERS.client.color} icon={BANNERS.client.icon} style={styles.gridImg5D} radius={18}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>👤 CLIENT</Text><Text style={styles.gridSub5D}>{user.guest?"Invité":`${points}pts`}</Text></View></Banner></TouchableOpacity>
+          <TouchableOpacity style={styles.gridItem5D} onPress={()=>nav("espaces")}><Banner color={BANNERS.merchant.color} icon={BANNERS.merchant.icon} style={styles.gridImg5D} radius={18}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>🧰 ESPACE</Text><Text style={styles.gridSub5D}>Vendre / Livrer</Text></View></Banner></TouchableOpacity>
+          <TouchableOpacity style={styles.gridItem5D} onPress={()=>user.guest?requireAccount("accéder à PERMUTA"):nav("permuta")}><Banner color={BANNERS.permuta.color} icon={BANNERS.permuta.icon} style={styles.gridImg5D} radius={18}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>🔄 PERMUTA {user.guest?"🔒":""}</Text><Text style={styles.gridSub5D}>Simulation test</Text></View></Banner></TouchableOpacity>
+          <TouchableOpacity style={styles.gridItem5D} onPress={()=>nav("settings")}><Banner color={BANNERS.settings.color} icon={BANNERS.settings.icon} style={styles.gridImg5D} radius={18}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>⚙️ PARAMÈTRES</Text><Text style={styles.gridSub5D}>Compte, rôles, PIN</Text></View></Banner></TouchableOpacity>
         </View>
       </View>
     );
@@ -691,7 +708,7 @@ export default function App(){
   if(page==="wallet"){
     if(user.guest) return <RoleGate T={T} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} info={{icon:"💳",label:"Wallet",desc:"Le portefeuille est réservé aux comptes inscrits"}} onActivate={()=>setUser(null)} actionLabel="S'inscrire"/>;
     return (<Page title="Wallet" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
-      <ImageBackground source={{uri:IMG.hero_wallet}} style={styles.walletHero5D} imageStyle={{borderRadius:24}}><View style={styles.walletOverlay5D}><Text style={styles.walletLabel5D}>SIMULATION TEST</Text><Text style={styles.walletBalance5D}>{money(wallet)}</Text><Text style={styles.walletSub5D}>{points}pts • {getLevel()}</Text></View></ImageBackground>
+      <Banner color={BANNERS.wallet.color} icon={BANNERS.wallet.icon} style={styles.walletHero5D} radius={24}><View style={styles.walletOverlay5D}><Text style={styles.walletLabel5D}>SIMULATION TEST</Text><Text style={styles.walletBalance5D}>{money(wallet)}</Text><Text style={styles.walletSub5D}>{points}pts • {getLevel()}</Text></View></Banner>
       <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
         <Text style={[styles.cardTitle5D,{color:T.text}]}>🔐 Déverrouiller (PIN)</Text>
         <TextInput value={pinInput} onChangeText={setPinInput} placeholder="PIN" secureTextEntry keyboardType="numeric" maxLength={4} style={styles.input5D}/>
@@ -720,7 +737,7 @@ export default function App(){
     if(!hasRole("commercant")) return <RoleGate T={T} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} info={ROLES_INFO.commercant} onActivate={()=>nav("settings")} actionLabel="Activer dans les Paramètres"/>;
     const my=products.filter(p=>p.shop===user.shopName); const rating=avgRating(user.shopName);
     return (<Page title={`Boutique - ${R.BLOQUE}j`} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
-      <ImageBackground source={{uri:IMG.hero_merchant}} style={styles.spaceHero5D} imageStyle={{borderRadius:22}}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🏪 {user.shopName} {isVerified("commercant")?"✅":""}</Text><Text style={styles.spaceSub5D}>{rating?`⭐ ${rating.avg}/5 (${rating.count} avis)`:"Pas encore d'avis"}</Text></View></ImageBackground>
+      <Banner color={BANNERS.merchant.color} icon={BANNERS.merchant.icon} style={styles.spaceHero5D} radius={22}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🏪 {user.shopName} {isVerified("commercant")?"✅":""}</Text><Text style={styles.spaceSub5D}>{rating?`⭐ ${rating.avg}/5 (${rating.count} avis)`:"Pas encore d'avis"}</Text></View></Banner>
       <TouchableOpacity style={[styles.add5D,{backgroundColor:T.card}]} onPress={()=>setShowAdd(true)}><Image source={{uri:IMG.boutique}} style={styles.addImg5D}/><View style={{flex:1}}><Text style={[styles.addT5D,{color:T.text}]}>＋ Ajouter produit</Text></View></TouchableOpacity>
       <View style={[styles.security5D,{marginBottom:12}]}><Text style={styles.securityTitle5D}>📈 Publicité Facebook/Instagram</Text><Text style={styles.securityText5D}>Appuie sur "📤 Partager" sur un produit, puis dans Facebook/Instagram, choisis "Booster cette publication" pour toucher plus de clients (budget et paiement gérés directement par toi sur Facebook).</Text></View>
       {my.map(p=>{ const bloq=Date.now()-p.last<R.BLOQUE*86400000; return (
@@ -748,7 +765,7 @@ export default function App(){
   // ---- Parcourir les services (client) ----
   if(page==="services"){
     return (<Page title="Services Pro" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
-      <ImageBackground source={{uri:IMG.hero_services}} style={styles.spaceHero5D} imageStyle={{borderRadius:22}}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🧑‍💼 Tous les services disponibles</Text></View></ImageBackground>
+      <Banner color={BANNERS.services.color} icon={BANNERS.services.icon} style={styles.spaceHero5D} radius={22}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🧑‍💼 Tous les services disponibles</Text></View></Banner>
       {dispoServices.length===0 && <View style={styles.empty5D}><Text>Aucun service publié pour l'instant</Text></View>}
       {dispoServices.map(s=>{ const rating=avgRating(s.bureau); return (
         <TouchableOpacity key={s.id} style={[styles.card5D,{backgroundColor:T.card}]} onPress={()=>{ setSelectedService(s); nav("serviceDetail"); }}>
@@ -806,7 +823,7 @@ export default function App(){
     if(!hasRole("pro")) return <RoleGate T={T} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} info={ROLES_INFO.pro} onActivate={()=>nav("settings")} actionLabel="Activer dans les Paramètres"/>;
     const my=services.filter(s=>s.bureau===user.bureau); const myBookings=bookings.filter(b=>b.service.bureau===user.bureau); const rating=avgRating(user.bureau);
     return (<Page title={`Bureau Pro - ${R.BLOQUE}j`} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
-      <ImageBackground source={{uri:IMG.hero_pro}} style={styles.spaceHero5D} imageStyle={{borderRadius:22}}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🧑‍💼 {user.bureau} {isVerified("pro")?"✅":""}</Text><Text style={styles.spaceSub5D}>{user.domaine} • {rating?`⭐ ${rating.avg}/5 (${rating.count} avis)`:"Pas encore d'avis"}</Text></View></ImageBackground>
+      <Banner color={BANNERS.pro.color} icon={BANNERS.pro.icon} style={styles.spaceHero5D} radius={22}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🧑‍💼 {user.bureau} {isVerified("pro")?"✅":""}</Text><Text style={styles.spaceSub5D}>{user.domaine} • {rating?`⭐ ${rating.avg}/5 (${rating.count} avis)`:"Pas encore d'avis"}</Text></View></Banner>
 
       {myBookings.length>0 && (<><Text style={[styles.section5D,{color:T.text}]}>📅 Mes réservations</Text>
         {myBookings.map(b=>(<View key={b.id} style={[styles.myProd5D,{backgroundColor:T.card}]}>
@@ -903,14 +920,14 @@ export default function App(){
   if(page==="courier"){
     if(!hasRole("livreur")) return <RoleGate T={T} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} info={ROLES_INFO.livreur} onActivate={()=>nav("settings")} actionLabel="Activer dans les Paramètres"/>;
     return (<Page title={`Livreur - ${R.SPLIT_LIVREUR}F`} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
-      <ImageBackground source={{uri:IMG.hero_courier}} style={styles.spaceHero5D} imageStyle={{borderRadius:22}}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🚚 {user.vehicule} {isVerified("livreur")?"✅":""}</Text><Text style={styles.spaceSub5D}>{R.SPLIT_LIVREUR}F + {R.BONUS_LIVRAISON}pts par livraison confirmée</Text></View></ImageBackground>
+      <Banner color={BANNERS.courier.color} icon={BANNERS.courier.icon} style={styles.spaceHero5D} radius={22}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🚚 {user.vehicule} {isVerified("livreur")?"✅":""}</Text><Text style={styles.spaceSub5D}>{R.SPLIT_LIVREUR}F + {R.BONUS_LIVRAISON}pts par livraison confirmée</Text></View></Banner>
       {orders.filter(o=>o.step===2).map(o=>(<View key={o.id} style={[styles.delivery5D,{backgroundColor:T.card}]}><Text style={[styles.deliveryTitle5D,{color:T.text}]}>{o.code} - Code {o.codeLivraison}</Text><TouchableOpacity style={styles.buy5D} onPress={()=>takeDelivery(o)}><Text style={styles.buy5DT}>Prendre - {R.SPLIT_LIVREUR}F</Text></TouchableOpacity></View>))}
     </Page>);
   }
 
   if(page==="permuta"){
     return (<Page title="PERMUTA" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
-      <ImageBackground source={{uri:IMG.hero_permuta}} style={styles.spaceHero5D} imageStyle={{borderRadius:22}}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🔄 PERMUTA - SIMULATION TEST</Text></View></ImageBackground>
+      <Banner color={BANNERS.permuta.color} icon={BANNERS.permuta.icon} style={styles.spaceHero5D} radius={22}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🔄 PERMUTA - SIMULATION TEST</Text></View></Banner>
       {permuta.map(it=>(<View key={it.id} style={[styles.permutaCard5D,{backgroundColor:T.card}]}><View style={styles.permutaRow5D}><Image source={{uri:it.img1}} style={styles.permutaImg5D}/><Text>🔄</Text><Image source={{uri:it.img2}} style={styles.permutaImg5D}/></View><Text style={[styles.permutaName5D,{color:T.text}]}>{it.name} - SIMULATION</Text></View>))}
     </Page>);
   }
@@ -1016,6 +1033,13 @@ export default function App(){
 }
 
 // ---- Composants réutilisables ----
+
+function Banner({color,icon,radius,style,children}){
+  return (<View style={[style,{backgroundColor:color, borderRadius:radius||24, overflow:"hidden"}]}>
+    <Text style={{position:"absolute", right:-14, bottom:-24, fontSize:120, opacity:0.16}}>{icon}</Text>
+    {children}
+  </View>);
+}
 
 function Avatar({user,size}){
   if(user?.avatarUri){
