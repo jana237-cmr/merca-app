@@ -245,6 +245,9 @@ export default function App(){
   const back=()=>{ if(hist.length===0){ setPage("home"); return; } setPage(hist[hist.length-1]); setHist(h=>h.slice(0,-1)); };
   const home=()=>{ setHist([]); setPage("home"); };
   const money=(v)=>Number(v||0).toLocaleString("fr-FR")+" FCFA";
+  // Nettoie une description avant affichage client/partage : supprime toute
+  // trace d'un ancien texte "Prix bloqué Xj" (info interne réservée au commerçant/pro)
+  const cleanDesc=(d)=> (d||"").replace(/prix bloqu[ée]\s*\d+\s*j[^.\n]*\.?/gi,"").trim();
   const getLevel=()=>{ if(user?.guest) return "Invité"; if(points>=R.OR){ if(orDate && (Date.now()-orDate)/(30*24*60*60*1000) > R.OR_CYCLE_MOIS) return "ARGENT (Or expiré - 9 mois)"; return "OR"; } if(points>=R.ARGENT) return "ARGENT"; return "BRONZE"; };
   const approx=(a,b)=>{ a=a.toLowerCase(); b=b.toLowerCase(); return b.includes(a)||(a.includes('iphon')&&b.includes('iphone')); };
   const hasRole=(r)=> !!(user && user.roles && user.roles.includes(r));
@@ -259,9 +262,9 @@ export default function App(){
   const toggleFavorite=(id)=> setFavorites(f=> f.includes(id) ? f.filter(x=>x!==id) : [...f,id]);
 
   // ---- Partage marketing (Niveau 1 : ouvre le partage natif du téléphone -
-  // Facebook, Instagram, WhatsApp, etc. - avec le texte déjà prêt) ----
+  // Facebook, Instagram, WhatsApp, etc. - avec un message professionnel déjà prêt) ----
   const shareService=(s)=>{
-    const texte=`🧑‍💼 ${s.name}\n💰 ${money(s.price)}\n\nRéservable sur MERCA - contacte ${user?.bureau||"le bureau"} !`;
+    const texte=`🧑‍💼 SERVICE PROFESSIONNEL — MERCA\n\n${s.name}\n💰 À partir de ${money(s.price)}\n🏢 ${user?.bureau||"Bureau professionnel"}\n\n${cleanDesc(s.desc)}\n\n✅ Réservation simple et rapide\n📲 Confirmation immédiate\n🔒 Paiement sécurisé\n\n👉 Réservez votre créneau sur MERCA !\n\n#MERCA #Yaoundé #ServicesPro`;
     Share.share({ message: texte }).catch(()=>{});
   };
 
@@ -273,10 +276,12 @@ export default function App(){
   };
 
   // ---- Partage marketing gratuit (ouvre Facebook, Instagram, WhatsApp... déjà installés sur le téléphone) ----
+  // ---- Partage marketing gratuit (ouvre Facebook, Instagram, WhatsApp... déjà installés sur le téléphone) ----
   const shareProduct=async(p)=>{
     try{
+      const desc=cleanDesc(p.desc);
       await Share.share({
-        message: `🛍️ ${p.name}\n💰 ${money(p.price)}\n📍 ${p.ville}\n\n${p.desc||""}\n\nDisponible sur MERCA — commande directement dans l'app !`,
+        message: `🛍️ NOUVEAU SUR MERCA\n\n${p.name}\n💰 ${money(p.price)}\n📍 Disponible à ${p.ville||"Yaoundé"}\n${desc?`\n${desc}\n`:""}\n✅ Prix vérifié et garanti\n📦 Commande directe et sécurisée\n🚚 Livraison rapide\n\n👉 Commandez dès maintenant sur MERCA !\n\n#MERCA #Yaoundé #ShoppingCameroun`,
       });
     }catch(e){ /* utilisateur a annulé le partage, rien à faire */ }
   };
@@ -787,7 +792,7 @@ export default function App(){
         <Text style={[styles.cardTitle5D,{color:T.text}]}>{selectedService.name}</Text>
         <Text style={styles.settingsSub}>{selectedService.bureau} • {selectedService.domaine} {rating?`• ⭐ ${rating.avg}/5 (${rating.count})`:''}</Text>
         <Text style={[styles.settingsLine,{color:T.text,marginTop:8}]}>{money(selectedService.price)}</Text>
-        <Text style={styles.settingsSub}>{selectedService.desc}</Text>
+        <Text style={styles.settingsSub}>{cleanDesc(selectedService.desc)}</Text>
       </View>
       <TouchableOpacity style={styles.buy5D} onPress={()=>user.guest?requireAccount("réserver ce service"):nav("bookingSlot")}><Text style={styles.buy5DT}>Réserver - SIMULATION</Text></TouchableOpacity>
     </Page>);
