@@ -33,7 +33,7 @@
 // ============================================================================
 
 import React, { useMemo, useState, useEffect } from "react";
-import { SafeAreaView, View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, StyleSheet, Alert, Modal, Image, ImageBackground, Switch } from "react-native";
+import { SafeAreaView, View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, StyleSheet, Alert, Modal, Image, ImageBackground, Switch, Share } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 
@@ -241,11 +241,27 @@ export default function App(){
 
   const toggleFavorite=(id)=> setFavorites(f=> f.includes(id) ? f.filter(x=>x!==id) : [...f,id]);
 
+  // ---- Partage marketing (Niveau 1 : ouvre le partage natif du téléphone -
+  // Facebook, Instagram, WhatsApp, etc. - avec le texte déjà prêt) ----
+  const shareService=(s)=>{
+    const texte=`🧑‍💼 ${s.name}\n💰 ${money(s.price)}\n\nRéservable sur MERCA - contacte ${user?.bureau||"le bureau"} !`;
+    Share.share({ message: texte }).catch(()=>{});
+  };
+
   const avgRating=(targetName)=>{
     const rs=reviews.filter(r=>r.targetName===targetName);
     if(rs.length===0) return null;
     const avg=rs.reduce((s,r)=>s+r.rating,0)/rs.length;
     return { avg: Math.round(avg*10)/10, count: rs.length };
+  };
+
+  // ---- Partage marketing gratuit (ouvre Facebook, Instagram, WhatsApp... déjà installés sur le téléphone) ----
+  const shareProduct=async(p)=>{
+    try{
+      await Share.share({
+        message: `🛍️ ${p.name}\n💰 ${money(p.price)}\n📍 ${p.ville}\n\n${p.desc||""}\n\nDisponible sur MERCA — commande directement dans l'app !`,
+      });
+    }catch(e){ /* utilisateur a annulé le partage, rien à faire */ }
   };
 
   // ---- Inscription / connexion réelle (étape 1 : demander le code) ----
@@ -708,7 +724,7 @@ export default function App(){
       <ImageBackground source={{uri:IMG.hero_merchant}} style={styles.spaceHero5D} imageStyle={{borderRadius:22}}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🏪 {user.shopName} {isVerified("commercant")?"✅":""}</Text><Text style={styles.spaceSub5D}>{rating?`⭐ ${rating.avg}/5 (${rating.count} avis)`:"Pas encore d'avis"}</Text></View></ImageBackground>
       <TouchableOpacity style={[styles.add5D,{backgroundColor:T.card}]} onPress={()=>setShowAdd(true)}><Image source={{uri:IMG.boutique}} style={styles.addImg5D}/><View style={{flex:1}}><Text style={[styles.addT5D,{color:T.text}]}>＋ Ajouter produit</Text></View></TouchableOpacity>
       {my.map(p=>{ const bloq=Date.now()-p.last<R.BLOQUE*86400000; return (
-        <View key={p.id} style={[styles.myProd5D,{backgroundColor:T.card}]}><Image source={{uri:p.img}} style={styles.myProdImg5D}/><View style={{flex:1}}><Text style={[styles.myProdName5D,{color:T.text}]}>{p.name} {bloq?`🔒 ${R.BLOQUE}j`:''}</Text><Text style={styles.myProdPrice5D}>Prix {money(p.price)} • Stock {p.stock}</Text></View><TouchableOpacity onPress={()=>openEdit(p)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>✏️ Modifier</Text></TouchableOpacity></View>
+        <View key={p.id} style={[styles.myProd5D,{backgroundColor:T.card}]}><Image source={{uri:p.img}} style={styles.myProdImg5D}/><View style={{flex:1}}><Text style={[styles.myProdName5D,{color:T.text}]}>{p.name} {bloq?`🔒 ${R.BLOQUE}j`:''}</Text><Text style={styles.myProdPrice5D}>Prix {money(p.price)} • Stock {p.stock}</Text></View><TouchableOpacity onPress={()=>shareProduct(p)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>📤 Partager</Text></TouchableOpacity><TouchableOpacity onPress={()=>openEdit(p)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>✏️ Modifier</Text></TouchableOpacity></View>
       );})}
       <Modal visible={showAdd} transparent animationType="slide"><View style={styles.modalBg5D}><View style={styles.modal5D}>
         <Text style={styles.modalTitle5D}>＋ Nouveau produit</Text>
@@ -806,7 +822,7 @@ export default function App(){
         <View key={s.id} style={[styles.myProd5D,{backgroundColor:T.card}]}>
           <Image source={{uri:IMG.bureau}} style={styles.myProdImg5D}/>
           <View style={{flex:1}}><Text style={[styles.myProdName5D,{color:T.text}]}>{s.name} {bloq?`🔒 ${R.BLOQUE}j`:''}</Text><Text style={styles.myProdPrice5D}>{s.domaine} • Tarif {money(s.price)} • {s.dispo?"✅ Disponible":"⏸ Indisponible"}</Text></View>
-          <View style={{gap:6}}><TouchableOpacity onPress={()=>openEditService(s)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>✏️ Tarif</Text></TouchableOpacity><TouchableOpacity onPress={()=>toggleDispo(s.id)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>{s.dispo?"⏸ Pause":"▶️ Activer"}</Text></TouchableOpacity></View>
+          <View style={{gap:6}}><TouchableOpacity onPress={()=>shareService(s)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>📤 Partager</Text></TouchableOpacity><TouchableOpacity onPress={()=>openEditService(s)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>✏️ Tarif</Text></TouchableOpacity><TouchableOpacity onPress={()=>toggleDispo(s.id)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>{s.dispo?"⏸ Pause":"▶️ Activer"}</Text></TouchableOpacity></View>
         </View>
       );})}
       <Modal visible={showAddService} transparent animationType="slide"><View style={styles.modalBg5D}><View style={styles.modal5D}>
