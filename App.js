@@ -58,7 +58,7 @@ const IMG = {
   bureau:"https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=400",
 };
 
-const R = { BLOQUE:33, FRAIS:0.033, BASE:1500, SPLIT_LIVREUR:600, SPLIT_MARCHAND:450, SPLIT_MERCA:450, BONUS_LIVRAISON:777, POINTS_INSCRIPTION:3000, ARGENT:5000, OR:11000, OR_CYCLE_MOIS:9 };
+const R = { BLOQUE:50, FRAIS:0.033, BASE:1500, SPLIT_LIVREUR:600, SPLIT_MARCHAND:450, SPLIT_MERCA:450, BONUS_LIVRAISON:777, POINTS_INSCRIPTION:3000, ARGENT:5000, OR:11000, OR_CYCLE_MOIS:9 };
 
 // ---- Connexion au vrai serveur (backend) MERCA hébergé sur Render ----
 const API_BASE = "https://merca-backend-flwv.onrender.com";
@@ -410,7 +410,7 @@ export default function App(){
     if(!npName.trim()) return Alert.alert("Erreur","Nom du produit requis");
     if(isNaN(priceNum) || priceNum<=0) return Alert.alert("Erreur","Prix invalide");
     if(isNaN(stockNum) || stockNum<0) return Alert.alert("Erreur","Stock invalide");
-    const p={ id:uid("p"), name:npName.trim(), price:priceNum, cat:npCat, shop:user.shopName, rating:5, stock:stockNum, desc:`Prix bloqué ${R.BLOQUE}j`, ville:"Yaoundé", rayon:1, last:Date.now(), img:IMG.boutique };
+    const p={ id:uid("p"), name:npName.trim(), price:priceNum, cat:npCat, shop:user.shopName, rating:5, stock:stockNum, desc:"", ville:"Yaoundé", rayon:1, last:Date.now(), img:IMG.boutique };
     setProducts(ps=>[p,...ps]); setShowAdd(false); setNpName(""); setNpPrice(""); setNpStock("1");
   };
   const openEdit=(p)=>{ setShowEdit(p); setEditPrice(String(p.price)); setEditStock(String(p.stock)); };
@@ -431,7 +431,7 @@ export default function App(){
     const priceNum=parseFloat(nsPrice);
     if(!nsName.trim()) return Alert.alert("Erreur","Nom du service requis");
     if(isNaN(priceNum) || priceNum<=0) return Alert.alert("Erreur","Tarif invalide");
-    const s={ id:uid("s"), name:nsName.trim(), price:priceNum, domaine:nsDomaine, desc:nsDesc.trim()||`Prix bloqué ${R.BLOQUE}j`, bureau:user.bureau, proId:user.id, dispo:true, last:Date.now() };
+    const s={ id:uid("s"), name:nsName.trim(), price:priceNum, domaine:nsDomaine, desc:nsDesc.trim(), bureau:user.bureau, proId:user.id, dispo:true, last:Date.now() };
     setServices(ss=>[s,...ss]); setShowAddService(false); setNsName(""); setNsPrice(""); setNsDesc("");
   };
   const openEditService=(s)=>{ setShowEditService(s); setEsPrice(String(s.price)); };
@@ -594,7 +594,7 @@ export default function App(){
         <ImageBackground source={{uri:IMG.hero_home}} style={styles.hero5D} imageStyle={{borderRadius:24}}>
           <View style={styles.hero5DOverlay}>
             <Text style={styles.hero5DTitle}>Yaoundé - Prix réel d'abord</Text>
-            <Text style={styles.hero5DSub}>SIMULATION TEST - {R.BLOQUE}j - {R.SPLIT_LIVREUR}/{R.SPLIT_MARCHAND}/{R.SPLIT_MERCA}</Text>
+            <Text style={styles.hero5DSub}>SIMULATION TEST - {R.SPLIT_LIVREUR}/{R.SPLIT_MARCHAND}/{R.SPLIT_MERCA}</Text>
             <View style={styles.search5D}><Text>🔎</Text><TextInput value={search} onChangeText={(t)=>{ setSearch(t); setShowAlternatives(false); }} placeholder="Tape produit exact..." placeholderTextColor="#999" style={styles.searchInput5D}/></View>
           </View>
         </ImageBackground>
@@ -648,7 +648,6 @@ export default function App(){
               <Text style={styles.totalPrice5D}>Total {money(tot)}</Text>
             </View>
             {p.stock<=0 && <View style={styles.lock5D}><Text style={styles.lock5DT}>❌ Rupture de stock</Text></View>}
-            {bloq && p.stock>0 && <View style={styles.lock5D}><Text style={styles.lock5DT}>🔒 Bloqué {R.BLOQUE}j</Text></View>}
           </View>
           <TouchableOpacity onPress={()=>toggleFavorite(p.id)} style={styles.favBtn5D}><Text style={{fontSize:16}}>{fav?"❤️":"🤍"}</Text></TouchableOpacity>
         </TouchableOpacity>
@@ -723,6 +722,7 @@ export default function App(){
     return (<Page title={`Boutique - ${R.BLOQUE}j`} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <ImageBackground source={{uri:IMG.hero_merchant}} style={styles.spaceHero5D} imageStyle={{borderRadius:22}}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🏪 {user.shopName} {isVerified("commercant")?"✅":""}</Text><Text style={styles.spaceSub5D}>{rating?`⭐ ${rating.avg}/5 (${rating.count} avis)`:"Pas encore d'avis"}</Text></View></ImageBackground>
       <TouchableOpacity style={[styles.add5D,{backgroundColor:T.card}]} onPress={()=>setShowAdd(true)}><Image source={{uri:IMG.boutique}} style={styles.addImg5D}/><View style={{flex:1}}><Text style={[styles.addT5D,{color:T.text}]}>＋ Ajouter produit</Text></View></TouchableOpacity>
+      <View style={[styles.security5D,{marginBottom:12}]}><Text style={styles.securityTitle5D}>📈 Publicité Facebook/Instagram</Text><Text style={styles.securityText5D}>Appuie sur "📤 Partager" sur un produit, puis dans Facebook/Instagram, choisis "Booster cette publication" pour toucher plus de clients (budget et paiement gérés directement par toi sur Facebook).</Text></View>
       {my.map(p=>{ const bloq=Date.now()-p.last<R.BLOQUE*86400000; return (
         <View key={p.id} style={[styles.myProd5D,{backgroundColor:T.card}]}><Image source={{uri:p.img}} style={styles.myProdImg5D}/><View style={{flex:1}}><Text style={[styles.myProdName5D,{color:T.text}]}>{p.name} {bloq?`🔒 ${R.BLOQUE}j`:''}</Text><Text style={styles.myProdPrice5D}>Prix {money(p.price)} • Stock {p.stock}</Text></View><TouchableOpacity onPress={()=>shareProduct(p)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>📤 Partager</Text></TouchableOpacity><TouchableOpacity onPress={()=>openEdit(p)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>✏️ Modifier</Text></TouchableOpacity></View>
       );})}
@@ -818,6 +818,7 @@ export default function App(){
 
       <Text style={[styles.section5D,{color:T.text}]}>Mes services</Text>
       <TouchableOpacity style={[styles.add5D,{backgroundColor:T.card}]} onPress={()=>setShowAddService(true)}><Image source={{uri:IMG.bureau}} style={styles.addImg5D}/><View style={{flex:1}}><Text style={[styles.addT5D,{color:T.text}]}>＋ Ajouter un service</Text></View></TouchableOpacity>
+      <View style={[styles.security5D,{marginBottom:12}]}><Text style={styles.securityTitle5D}>📈 Publicité Facebook/Instagram</Text><Text style={styles.securityText5D}>Appuie sur "📤 Partager" sur un service, puis dans Facebook/Instagram, choisis "Booster cette publication" pour toucher plus de clients (budget et paiement gérés directement par toi sur Facebook).</Text></View>
       {my.map(s=>{ const bloq=Date.now()-s.last<R.BLOQUE*86400000; return (
         <View key={s.id} style={[styles.myProd5D,{backgroundColor:T.card}]}>
           <Image source={{uri:IMG.bureau}} style={styles.myProdImg5D}/>
