@@ -36,13 +36,8 @@ import React, { useMemo, useState, useEffect } from "react";
 import { SafeAreaView, View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, StyleSheet, Alert, Modal, Image, ImageBackground, Switch, Share } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
-import * as Notifications from "expo-notifications";
-
-// Configuration des notifications push (fonctionnera une fois l'app construite
-// en version finale - pas testable dans Expo Go pour l'instant, échoue sans danger)
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: true }),
-});
+// (notifications push : chargées uniquement à l'usage, voir registerPushToken plus bas -
+// évite un plantage au démarrage dans Expo Go, qui ne supporte plus cette fonctionnalité)
 
 const STORAGE_KEY = "MERCA_STATE_V7";
 
@@ -106,6 +101,13 @@ function apiWakeUp(){ fetch(`${API_BASE}/products`).catch(()=>{}); }
 // les tests - échoue silencieusement dans ce cas, sans gêner le reste de l'app.
 async function registerPushToken(accessToken){
   try{
+    // Chargement différé (dynamique) : si le module échoue (cas d'Expo Go qui
+    // ne supporte plus cette fonctionnalité), l'erreur est proprement rattrapée
+    // ici, au lieu de faire planter l'app dès son ouverture.
+    const Notifications = await import("expo-notifications");
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: true }),
+    });
     const { status } = await Notifications.requestPermissionsAsync();
     if(status!=="granted") return;
     const { data:pushToken } = await Notifications.getExpoPushTokenAsync();
