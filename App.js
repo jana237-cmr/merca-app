@@ -36,6 +36,13 @@ import React, { useMemo, useState, useEffect } from "react";
 import { SafeAreaView, View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, StyleSheet, Alert, Modal, Image, ImageBackground, Switch, Share } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
+import * as Notifications from "expo-notifications";
+
+// Configuration des notifications push (fonctionnera une fois l'app construite
+// en version finale - pas testable dans Expo Go pour l'instant, échoue sans danger)
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: true }),
+});
 
 const STORAGE_KEY = "MERCA_STATE_V7";
 
@@ -93,6 +100,18 @@ async function apiAddRole(token, dto){
 // après inactivité, jusqu'à 50-90s pour redémarrer). Appelée tout de suite au chargement,
 // pendant que l'utilisateur remplit le formulaire, pour que le serveur soit déjà prêt.
 function apiWakeUp(){ fetch(`${API_BASE}/products`).catch(()=>{}); }
+
+// Inscrit le téléphone pour recevoir de vraies notifications (même app fermée).
+// Ne fonctionne que sur une vraie app installée, jamais dans Expo Go pendant
+// les tests - échoue silencieusement dans ce cas, sans gêner le reste de l'app.
+async function registerPushToken(accessToken){
+  try{
+    const { status } = await Notifications.requestPermissionsAsync();
+    if(status!=="granted") return;
+    const { data:pushToken } = await Notifications.getExpoPushTokenAsync();
+    if(pushToken) await apiUpdateProfile(accessToken, { pushToken });
+  }catch(e){ /* normal dans Expo Go - fonctionnera dans la vraie app installée */ }
+}
 
 const CATS=["Tous","Téléphones","Informatique","Électronique","Meubles","Vêtements","Chaussures"];
 const PRO_DOMAINES=["Juridique","Santé","Beauté","Réparation","Éducation","Consulting","Informatique","Autre"];
@@ -307,6 +326,7 @@ export default function App(){
     try{
       const { accessToken:token, user:serverUser } = await apiVerifyOtp(regPhone.trim(), otpCode.trim());
       setAccessToken(token);
+      registerPushToken(token); // en arrière-plan, ne bloque rien
 
       // Complète le profil côté serveur (le serveur ne connaissait que le numéro jusqu'ici)
       let updated=serverUser;
