@@ -91,6 +91,29 @@ async function apiAddRole(token, dto){
   if(!res.ok) throw new Error("Impossible d'activer ce rôle");
   return res.json();
 }
+// ---- Catalogue produits réel (serveur) ----
+async function apiGetProducts(city){
+  const res = await fetch(`${API_BASE}/products${city?`?city=${encodeURIComponent(city)}`:""}`);
+  if(!res.ok) throw new Error("Impossible de charger les produits du serveur");
+  return res.json();
+}
+async function apiCreateProduct(token, dto){
+  const res = await fetch(`${API_BASE}/products`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify(dto) });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible de créer le produit");
+  return data;
+}
+async function apiUpdateProduct(token, id, dto){
+  const res = await fetch(`${API_BASE}/products/${id}`, { method:"PATCH", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify(dto) });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible de modifier le produit");
+  return data;
+}
+// Convertit un produit reçu du serveur (champs anglais/techniques) vers le
+// format utilisé partout dans l'app (champs français déjà existants)
+function serverToLocalProduct(p){
+  return { id:p.id, merchantId:p.merchantId, name:p.name, price:Number(p.price), cat:p.category||"Autre", shop:p.shopName||"Boutique MERCA", rating:5, stock:p.stock, desc:p.description||"", ville:p.city||"Yaoundé", rayon:1, last: p.priceLockedUntil ? new Date(p.priceLockedUntil).getTime()-R.BLOQUE*86400000 : 0, img:p.img||IMG.boutique };
+}
 // Réveille le serveur dès l'ouverture de l'app (plan gratuit Render = mise en veille
 // après inactivité, jusqu'à 50-90s pour redémarrer). Appelée tout de suite au chargement,
 // pendant que l'utilisateur remplit le formulaire, pour que le serveur soit déjà prêt.
@@ -228,6 +251,17 @@ export default function App(){
 
   // ---- Chargement / sauvegarde ----
   useEffect(()=>{ apiWakeUp(); },[]); // réveille le serveur dès l'ouverture de l'app
+  // Charge les vrais produits du serveur et les ajoute à ceux de démonstration
+  // (ceux de démo restent visibles pour ne rien casser, mais ne sont pas sur le serveur)
+  useEffect(()=>{ (async()=>{
+    try{
+      const serverProducts = await apiGetProducts();
+      setProducts(ps=>{
+        const demoOnly = ps.filter(p=>!p.merchantId);
+        return [...serverProducts.map(serverToLocalProduct), ...demoOnly];
+      });
+    }catch(e){ /* pas grave - le catalogue de démo reste affiché */ }
+  })(); },[]);
   useEffect(()=>{ (async()=>{
     try{
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
@@ -449,24 +483,35 @@ export default function App(){
     });
   };
 
-  const createProd=()=>{
+  const createProd=async()=>{
     const priceNum=parseFloat(npPrice); const stockNum=parseInt(npStock,10);
     if(!npName.trim()) return Alert.alert("Erreur","Nom du produit requis");
     if(isNaN(priceNum) || priceNum<=0) return Alert.alert("Erreur","Prix invalide");
     if(isNaN(stockNum) || stockNum<0) return Alert.alert("Erreur","Stock invalide");
-    const p={ id:uid("p"), name:npName.trim(), price:priceNum, cat:npCat, shop:user.shopName, rating:5, stock:stockNum, desc:"", ville:"Yaoundé", rayon:1, last:Date.now(), img:IMG.boutique };
-    setProducts(ps=>[p,...ps]); setShowAdd(false); setNpName(""); setNpPrice(""); setNpStock("1");
+    if(!accessToken){ return Alert.alert("Erreur","Reconnecte-toi pour ajouter un produit (session expirée)."); }
+    try{
+      const created = await apiCreateProduct(accessToken, { name:npName.trim(), price:priceNum, stock:stockNum, category:npCat, city:user.city||"Yaoundé", shopName:user.shopName });
+      setProducts(ps=>[serverToLocalProduct(created), ...ps]);
+      setShowAdd(false); setNpName(""); setNpPrice(""); setNpStock("1");
+    }catch(e){ Alert.alert("Erreur", e.message); }
   };
   const openEdit=(p)=>{ setShowEdit(p); setEditPrice(String(p.price)); setEditStock(String(p.stock)); };
-  const updateProd=()=>{
+  const updateProd=async()=>{
     if(!showEdit) return;
     const locked = Date.now()-showEdit.last < R.BLOQUE*86400000;
     if(locked){ const j=Math.ceil((R.BLOQUE*86400000-(Date.now()-showEdit.last))/86400000); return Alert.alert(`Bloqué encore ${j}j`,`Le prix ne peut pas changer avant ${j} jour(s).`); }
     const priceNum=parseFloat(editPrice); const stockNum=parseInt(editStock,10);
     if(isNaN(priceNum) || priceNum<=0) return Alert.alert("Erreur","Prix invalide");
     if(isNaN(stockNum) || stockNum<0) return Alert.alert("Erreur","Stock invalide");
-    confirm(`Modifier - bloqué ${R.BLOQUE}j après ce changement`, `Nouveau prix ${money(priceNum)} ?`, ()=>{
-      setProducts(ps=>ps.map(pr=>pr.id===showEdit.id?{...pr,price:priceNum,stock:stockNum,last:Date.now()}:pr));
+    confirm(`Modifier - bloqué ${R.BLOQUE}j après ce changement`, `Nouveau prix ${money(priceNum)} ?`, async()=>{
+      if(showEdit.merchantId && accessToken){
+        try{
+          const updated = await apiUpdateProduct(accessToken, showEdit.id, { price:priceNum, stock:stockNum });
+          setProducts(ps=>ps.map(pr=>pr.id===showEdit.id?serverToLocalProduct(updated):pr));
+        }catch(e){ Alert.alert("Erreur", e.message); return; }
+      }else{
+        setProducts(ps=>ps.map(pr=>pr.id===showEdit.id?{...pr,price:priceNum,stock:stockNum,last:Date.now()}:pr));
+      }
       setShowEdit(null);
     });
   };
