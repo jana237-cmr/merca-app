@@ -114,6 +114,98 @@ async function apiUpdateProduct(token, id, dto){
 function serverToLocalProduct(p){
   return { id:p.id, merchantId:p.merchantId, name:p.name, price:Number(p.price), cat:p.category||"Autre", shop:p.shopName||"Boutique MERCA", rating:5, stock:p.stock, desc:p.description||"", ville:p.city||"Yaoundé", rayon:1, last: p.priceLockedUntil ? new Date(p.priceLockedUntil).getTime()-R.BLOQUE*86400000 : 0, img:p.img||IMG.boutique };
 }
+// ---- Commandes réelles (serveur) ----
+async function apiCreateOrder(token, dto){
+  const res = await fetch(`${API_BASE}/orders`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify(dto) });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible de créer la commande");
+  return data;
+}
+async function apiAdvanceOrder(token, id){
+  const res = await fetch(`${API_BASE}/orders/${id}/advance`, { method:"POST", headers:{ Authorization:`Bearer ${token}` } });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible de faire avancer la commande");
+  return data;
+}
+async function apiConfirmOrder(token, id){
+  const res = await fetch(`${API_BASE}/orders/${id}/confirm`, { method:"POST", headers:{ Authorization:`Bearer ${token}` } });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible de confirmer la réception");
+  return data;
+}
+async function apiGetMyOrders(token){
+  const res = await fetch(`${API_BASE}/orders/mine`, { headers:{ Authorization:`Bearer ${token}` } });
+  if(!res.ok) throw new Error("Impossible de charger tes commandes");
+  return res.json();
+}
+async function apiGetOrdersToFulfill(token){
+  const res = await fetch(`${API_BASE}/orders/to-fulfill`, { headers:{ Authorization:`Bearer ${token}` } });
+  if(!res.ok) throw new Error("Impossible de charger les commandes reçues");
+  return res.json();
+}
+async function apiGetAvailableOrders(token){
+  const res = await fetch(`${API_BASE}/orders/available`, { headers:{ Authorization:`Bearer ${token}` } });
+  if(!res.ok) throw new Error("Impossible de charger les livraisons disponibles");
+  return res.json();
+}
+async function apiGetMyDeliveries(token){
+  const res = await fetch(`${API_BASE}/orders/deliveries`, { headers:{ Authorization:`Bearer ${token}` } });
+  if(!res.ok) throw new Error("Impossible de charger tes livraisons");
+  return res.json();
+}
+// ---- Services réels (serveur) ----
+async function apiGetServices(domaine){
+  const res = await fetch(`${API_BASE}/services${domaine?`?domaine=${encodeURIComponent(domaine)}`:""}`);
+  if(!res.ok) throw new Error("Impossible de charger les services");
+  return res.json();
+}
+async function apiCreateService(token, dto){
+  const res = await fetch(`${API_BASE}/services`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify(dto) });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible de créer le service");
+  return data;
+}
+async function apiUpdateService(token, id, dto){
+  const res = await fetch(`${API_BASE}/services/${id}`, { method:"PATCH", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify(dto) });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible de modifier le service");
+  return data;
+}
+// ---- Réservations réelles (serveur) ----
+async function apiCreateBooking(token, dto){
+  const res = await fetch(`${API_BASE}/bookings`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify(dto) });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible de créer la réservation");
+  return data;
+}
+async function apiConfirmBooking(token, id){
+  const res = await fetch(`${API_BASE}/bookings/${id}/confirm`, { method:"POST", headers:{ Authorization:`Bearer ${token}` } });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible de confirmer");
+  return data;
+}
+async function apiCompleteBooking(token, id){
+  const res = await fetch(`${API_BASE}/bookings/${id}/complete`, { method:"POST", headers:{ Authorization:`Bearer ${token}` } });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible de terminer");
+  return data;
+}
+async function apiCancelBooking(token, id){
+  const res = await fetch(`${API_BASE}/bookings/${id}/cancel`, { method:"POST", headers:{ Authorization:`Bearer ${token}` } });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible d'annuler");
+  return data;
+}
+async function apiGetMyBookings(token){
+  const res = await fetch(`${API_BASE}/bookings/mine`, { headers:{ Authorization:`Bearer ${token}` } });
+  if(!res.ok) throw new Error("Impossible de charger tes réservations");
+  return res.json();
+}
+async function apiGetBookingsToFulfill(token){
+  const res = await fetch(`${API_BASE}/bookings/to-fulfill`, { headers:{ Authorization:`Bearer ${token}` } });
+  if(!res.ok) throw new Error("Impossible de charger les réservations reçues");
+  return res.json();
+}
 // Réveille le serveur dès l'ouverture de l'app (plan gratuit Render = mise en veille
 // après inactivité, jusqu'à 50-90s pour redémarrer). Appelée tout de suite au chargement,
 // pendant que l'utilisateur remplit le formulaire, pour que le serveur soit déjà prêt.
@@ -206,6 +298,12 @@ export default function App(){
   const [cat,setCat]=useState("Tous"); const [ville,setVille]=useState("Yaoundé"); const [rayon,setRayon]=useState(5);
   const [selected,setSelected]=useState(null); const [selectedService,setSelectedService]=useState(null); const [selectedSlot,setSelectedSlot]=useState(null);
   const [orders,setOrders]=useState([]); const [selectedOrder,setSelectedOrder]=useState(null);
+  // Listes réelles côté commerçant (commandes reçues) et côté livreur
+  // (livraisons disponibles à prendre + celles déjà assignées à moi)
+  const [incomingOrders,setIncomingOrders]=useState([]);
+  const [incomingBookings,setIncomingBookings]=useState([]);
+  const [availableDeliveries,setAvailableDeliveries]=useState([]);
+  const [myDeliveries,setMyDeliveries]=useState([]);
   const [bookings,setBookings]=useState([]); const [selectedBooking,setSelectedBooking]=useState(null);
   const [wallet,setWallet]=useState(25000); const [points,setPoints]=useState(0); const [orDate,setOrDate]=useState(null);
   const [walletHistory,setWalletHistory]=useState([]);
@@ -297,12 +395,46 @@ export default function App(){
   useEffect(()=>{ const t=setTimeout(()=>setDebouncedSearch(search),300); return ()=>clearTimeout(t); },[search]);
 
   const nav=(n)=>{ if(n===page) return; setHist(h=>[...h,page]); setPage(n); };
+  // Rafraîchit automatiquement la bonne liste de commandes/réservations selon l'écran ouvert
+  useEffect(()=>{
+    if(page==="merchant") refreshIncomingOrders();
+    if(page==="courier"){ refreshAvailableDeliveries(); refreshMyDeliveries(); }
+    if(page==="orders" || page==="client") { refreshMyOrders(); refreshMyBookings(); }
+    if(page==="pro") { refreshServices(); refreshBookingsToFulfill(); }
+    if(page==="home") refreshServices();
+  },[page, accessToken]);
   const back=()=>{ if(hist.length===0){ setPage("home"); return; } setPage(hist[hist.length-1]); setHist(h=>h.slice(0,-1)); };
   const home=()=>{ setHist([]); setPage("home"); };
   const money=(v)=>Number(v||0).toLocaleString("fr-FR")+" FCFA";
   // Nettoie une description avant affichage client/partage : supprime toute
   // trace d'un ancien texte "Prix bloqué Xj" (info interne réservée au commerçant/pro)
   const cleanDesc=(d)=> (d||"").replace(/prix bloqu[ée]\s*\d+\s*j[^.\n]*\.?/gi,"").trim();
+
+  // Reconstitue le format utilisé par l'app à partir d'une commande du serveur
+  // (le serveur ne connaît que les identifiants, pas les noms/images -
+  // on retrouve le produit correspondant dans le catalogue déjà chargé)
+  const serverToLocalOrder=(o)=>{
+    const product = products.find(p=>p.id===o.productId) || { name:"Produit", img:IMG.boutique, price:Number(o.price) };
+    return { id:o.id, codeLivraison:o.deliveryCode, product, delivery: Number(o.deliveryFee)>0?"Livraison MERCA":"Retrait boutique", com:Number(o.commission), base:Number(o.deliveryFee), total:Number(o.total), status:o.status, step:o.step, merchant:product.shop||"", merchantId:o.merchantId, courierId:o.courierId, splitCourier:Number(o.splitCourier), splitMerchant:Number(o.splitMerchant) };
+  };
+  const refreshMyOrders=async()=>{ if(!accessToken) return; try{ const list=await apiGetMyOrders(accessToken); setOrders(list.map(serverToLocalOrder)); }catch(e){} };
+  const refreshIncomingOrders=async()=>{ if(!accessToken) return; try{ const list=await apiGetOrdersToFulfill(accessToken); setIncomingOrders(list.map(serverToLocalOrder)); }catch(e){} };
+  const refreshAvailableDeliveries=async()=>{ if(!accessToken) return; try{ const list=await apiGetAvailableOrders(accessToken); setAvailableDeliveries(list.map(serverToLocalOrder)); }catch(e){} };
+  const refreshMyDeliveries=async()=>{ if(!accessToken) return; try{ const list=await apiGetMyDeliveries(accessToken); setMyDeliveries(list.map(serverToLocalOrder)); }catch(e){} };
+  const refreshWalletBalance=async()=>{ if(!accessToken) return; try{ const w=await apiGetWallet(accessToken); setWallet(Number(w.balance)); }catch(e){} };
+
+  // Reconstitue le format app d'un service reçu du serveur
+  const serverToLocalService=(s)=>({ id:s.id, proId:s.proId, name:s.name, price:Number(s.price), domaine:s.domaine, desc:s.description||"", bureau:s.bureau||"Bureau MERCA", dispo:s.dispo, last: s.priceLockedUntil ? new Date(s.priceLockedUntil).getTime()-R.BLOQUE*86400000 : 0 });
+  // Reconstitue le format app d'une réservation reçue du serveur (retrouve le
+  // service correspondant dans le catalogue de services déjà chargé)
+  const serverToLocalBooking=(b)=>{
+    const service = services.find(s=>s.id===b.serviceId) || { name:"Service", bureau:"" };
+    const stepIndex = BOOKING_STEPS.indexOf(b.status);
+    return { id:b.id, bookingCode:b.bookingCode, service, slot:{ label:new Date(b.slotAt).toLocaleString("fr-FR",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) }, price:Number(b.price), com:Number(b.commission), total:Number(b.total), status:b.status, step: stepIndex>=0?stepIndex:0, proId:b.proId, clientId:b.clientId };
+  };
+  const refreshServices=async()=>{ try{ const list=await apiGetServices(); setServices(list.map(serverToLocalService)); }catch(e){} };
+  const refreshMyBookings=async()=>{ if(!accessToken) return; try{ const list=await apiGetMyBookings(accessToken); setBookings(list.map(serverToLocalBooking)); }catch(e){} };
+  const refreshBookingsToFulfill=async()=>{ if(!accessToken) return; try{ const list=await apiGetBookingsToFulfill(accessToken); setIncomingBookings(list.map(serverToLocalBooking)); }catch(e){} };
   const getLevel=()=>{ if(user?.guest) return "Invité"; if(points>=R.OR){ if(orDate && (Date.now()-orDate)/(30*24*60*60*1000) > R.OR_CYCLE_MOIS) return "ARGENT (Or expiré - 9 mois)"; return "OR"; } if(points>=R.ARGENT) return "ARGENT"; return "BRONZE"; };
   const approx=(a,b)=>{ a=a.toLowerCase(); b=b.toLowerCase(); return b.includes(a)||(a.includes('iphon')&&b.includes('iphone')); };
   const hasRole=(r)=> !!(user && user.roles && user.roles.includes(r));
@@ -451,35 +583,49 @@ export default function App(){
   };
 
   // ---- Commandes produit (identique V5, avec vérification invité) ----
-  const createOrder=(product,delivery)=>{
+  const createOrder=async(product,delivery)=>{
     if(user.guest) return requireAccount("passer une commande");
+    if(!accessToken) return Alert.alert("Erreur","Reconnecte-toi (session expirée).");
     if(Date.now()<blocked) return Alert.alert("SIMULATION TEST","Compte bloqué temporairement");
+    if(!product.merchantId) return Alert.alert("Produit de démonstration","Ce produit n'existe pas vraiment sur le serveur - choisis un produit ajouté par un vrai commerçant pour passer une vraie commande.");
+    const isDelivery = delivery==="Livraison MERCA";
     const com=Math.round(product.price*R.FRAIS);
-    const tot=product.price + (delivery==="Livraison MERCA"? R.BASE + com : 0);
-    if(wallet<tot) return Alert.alert("Solde insuffisant","SIMULATION TEST");
-    if(product.stock<=0) return Alert.alert("Rupture de stock","SIMULATION TEST");
-    const codeUnique=genUniqueCode(orders,"codeLivraison");
-    const o={ id:uid("MC"), txId:uid("TX"), code:`MERC-${Math.random().toString(36).toUpperCase().slice(2,6)}`, codeLivraison:codeUnique, product, delivery, com, base:R.BASE, total:tot, status:STEPS[0], step:0, escrow:`SIMULATION TEST - Séquestre simulé - ${R.SPLIT_LIVREUR}F/${R.SPLIT_MARCHAND}F/${R.SPLIT_MERCA}F - Code ${codeUnique}`, merchant:product.shop };
-    setOrders(os=>[o,...os]);
-    setProducts(ps=>ps.map(p=>p.id===product.id?{...p,stock:Math.max(0,p.stock-1)}:p));
-    setSelectedOrder(o); setWallet(w=>w-tot);
-    setWalletHistory(h=>[{id:uid("h"),type:`SIMULATION TEST - ${product.name} - Code ${codeUnique}`,amount:-tot,icon:"📦",color:"#111"},...h]);
-    nav("tracking");
+    const tot=product.price + (isDelivery? R.BASE + com : 0);
+    if(wallet<tot) return Alert.alert("Solde insuffisant","");
+    if(product.stock<=0) return Alert.alert("Rupture de stock","");
+    try{
+      const created = await apiCreateOrder(accessToken, { productId:product.id, merchantId:product.merchantId, productPrice:product.price, delivery:isDelivery, idempotencyKey:uid("idem") });
+      const o = serverToLocalOrder(created);
+      setOrders(os=>[o,...os]);
+      setProducts(ps=>ps.map(p=>p.id===product.id?{...p,stock:Math.max(0,p.stock-1)}:p));
+      setSelectedOrder(o);
+      await refreshWalletBalance();
+      setWalletHistory(h=>[{id:uid("h"),type:`${product.name} - Code ${o.codeLivraison}`,amount:-o.total,icon:"📦",color:"#111"},...h]);
+      nav("tracking");
+    }catch(e){ Alert.alert("Erreur", e.message); }
   };
 
-  const advance=(order)=>{
-    const next=Math.min(order.step+1,STEPS.length-1);
-    const u={...order,step:next,status:STEPS[next],escrow:next===4?`SIMULATION TEST - À CONFIRMER - Code ${order.codeLivraison}`:`SIMULATION TEST - ${STEPS[next]} - Code ${order.codeLivraison}`};
-    setOrders(os=>os.map(o=>o.id===order.id?u:o)); setSelectedOrder(u);
+  // Fait avancer une commande d'une étape (appelé depuis l'écran du
+  // commerçant ou du livreur, selon l'étape - le serveur vérifie les droits)
+  const doAdvance=async(order, onDone)=>{
+    if(!accessToken) return;
+    try{
+      await apiAdvanceOrder(accessToken, order.id);
+      if(onDone) await onDone();
+    }catch(e){ Alert.alert("Erreur", e.message); }
   };
 
   const confirmReception=(order)=>{
-    confirm(`Confirmer réception - Code ${order.codeLivraison}`,`SIMULATION TEST - Débloque les fonds - +${R.BONUS_LIVRAISON} pts`,()=>{
-      const u={...order,status:"Confirmée - SIMULATION",escrow:`SIMULATION TEST - DÉBLOQUÉ - Code ${order.codeLivraison}`,step:4};
-      setOrders(os=>os.map(o=>o.id===order.id?u:o)); setSelectedOrder(u);
-      setPoints(p=>{ const np=p+R.BONUS_LIVRAISON; if(np>=R.OR && !orDate) setOrDate(Date.now()); return np; });
-      Alert.alert("SIMULATION TEST",`+${R.BONUS_LIVRAISON} pts - Code ${order.codeLivraison}`);
-      nav("home");
+    confirm(`Confirmer réception - Code ${order.codeLivraison}`,`Débloque les fonds vers le commerçant/livreur - +${R.BONUS_LIVRAISON} pts`,async()=>{
+      if(!accessToken) return;
+      try{
+        const updated = await apiConfirmOrder(accessToken, order.id);
+        const u = serverToLocalOrder(updated);
+        setOrders(os=>os.map(o=>o.id===order.id?u:o)); setSelectedOrder(u);
+        setPoints(p=>{ const np=p+R.BONUS_LIVRAISON; if(np>=R.OR && !orDate) setOrDate(Date.now()); return np; });
+        Alert.alert("Confirmé !",`+${R.BONUS_LIVRAISON} pts - Code ${order.codeLivraison}`);
+        nav("home");
+      }catch(e){ Alert.alert("Erreur", e.message); }
     });
   };
 
@@ -516,12 +662,16 @@ export default function App(){
     });
   };
 
-  const createService=()=>{
+  const createService=async()=>{
     const priceNum=parseFloat(nsPrice);
     if(!nsName.trim()) return Alert.alert("Erreur","Nom du service requis");
     if(isNaN(priceNum) || priceNum<=0) return Alert.alert("Erreur","Tarif invalide");
-    const s={ id:uid("s"), name:nsName.trim(), price:priceNum, domaine:nsDomaine, desc:nsDesc.trim(), bureau:user.bureau, proId:user.id, dispo:true, last:Date.now() };
-    setServices(ss=>[s,...ss]); setShowAddService(false); setNsName(""); setNsPrice(""); setNsDesc("");
+    if(!accessToken) return Alert.alert("Erreur","Reconnecte-toi (session expirée).");
+    try{
+      const created = await apiCreateService(accessToken, { name:nsName.trim(), price:priceNum, domaine:nsDomaine, description:nsDesc.trim(), bureau:user.bureau });
+      setServices(ss=>[serverToLocalService(created), ...ss]);
+      setShowAddService(false); setNsName(""); setNsPrice(""); setNsDesc("");
+    }catch(e){ Alert.alert("Erreur", e.message); }
   };
   const openEditService=(s)=>{ setShowEditService(s); setEsPrice(String(s.price)); };
   const updateService=()=>{
@@ -530,37 +680,59 @@ export default function App(){
     if(locked){ const j=Math.ceil((R.BLOQUE*86400000-(Date.now()-showEditService.last))/86400000); return Alert.alert(`Bloqué encore ${j}j`,`Le tarif ne peut pas changer avant ${j} jour(s).`); }
     const priceNum=parseFloat(esPrice);
     if(isNaN(priceNum) || priceNum<=0) return Alert.alert("Erreur","Tarif invalide");
-    confirm(`Modifier - bloqué ${R.BLOQUE}j`, `Nouveau tarif ${money(priceNum)} ?`, ()=>{
-      setServices(ss=>ss.map(s=>s.id===showEditService.id?{...s,price:priceNum,last:Date.now()}:s));
+    confirm(`Modifier - bloqué ${R.BLOQUE}j`, `Nouveau tarif ${money(priceNum)} ?`, async()=>{
+      try{
+        const updated = await apiUpdateService(accessToken, showEditService.id, { price:priceNum });
+        setServices(ss=>ss.map(s=>s.id===showEditService.id?serverToLocalService(updated):s));
+      }catch(e){ Alert.alert("Erreur", e.message); return; }
       setShowEditService(null);
     });
   };
-  const toggleDispo=(id)=> setServices(ss=>ss.map(s=>s.id===id?{...s,dispo:!s.dispo}:s));
+  const toggleDispo=async(id)=>{
+    const s=services.find(x=>x.id===id); if(!s || !accessToken) return;
+    try{
+      const updated = await apiUpdateService(accessToken, id, { dispo: !s.dispo });
+      setServices(ss=>ss.map(x=>x.id===id?serverToLocalService(updated):x));
+    }catch(e){ Alert.alert("Erreur", e.message); }
+  };
 
   // ---- Réservation de service ----
-  const createBooking=()=>{
+  const createBooking=async()=>{
     if(user.guest) return requireAccount("réserver un service");
-    if(!selectedService || !selectedSlot) return;
+    if(!selectedService || !selectedSlot || !accessToken) return;
     const com=Math.round(selectedService.price*R.FRAIS); const tot=selectedService.price+com;
-    if(wallet<tot) return Alert.alert("Solde insuffisant","SIMULATION TEST");
-    const code=genUniqueCode(bookings,"bookingCode");
-    const b={ id:uid("BK"), txId:uid("TX"), bookingCode:code, service:selectedService, slot:selectedSlot, price:selectedService.price, com, total:tot, status:BOOKING_STEPS[0], step:0, createdAt:Date.now() };
-    setBookings(bs=>[b,...bs]); setWallet(w=>w-tot);
-    setWalletHistory(h=>[{id:uid("h"),type:`SIMULATION TEST - Réservation ${selectedService.name} - Code ${code}`,amount:-tot,icon:"📅",color:"#111"},...h]);
-    setSelectedBooking(b); setSelectedSlot(null); nav("bookingTracking");
+    if(wallet<tot) return Alert.alert("Solde insuffisant","");
+    try{
+      const created = await apiCreateBooking(accessToken, { serviceId:selectedService.id, proId:selectedService.proId, servicePrice:selectedService.price, slotAt:new Date(selectedSlot.at).toISOString(), idempotencyKey:uid("idem") });
+      const b = serverToLocalBooking(created);
+      setBookings(bs=>[b,...bs]);
+      await refreshWalletBalance();
+      setWalletHistory(h=>[{id:uid("h"),type:`Réservation ${selectedService.name} - Code ${b.bookingCode}`,amount:-b.total,icon:"📅",color:"#111"},...h]);
+      setSelectedBooking(b); setSelectedSlot(null); nav("bookingTracking");
+    }catch(e){ Alert.alert("Erreur", e.message); }
   };
-  const proConfirmBooking=(b)=>{ const u={...b,status:BOOKING_STEPS[1],step:1}; setBookings(bs=>bs.map(x=>x.id===b.id?u:x)); };
+  const proConfirmBooking=async(b)=>{
+    try{ const updated=await apiConfirmBooking(accessToken, b.id); setBookings(bs=>bs.map(x=>x.id===b.id?serverToLocalBooking(updated):x)); setIncomingBookings(bs=>bs.map(x=>x.id===b.id?serverToLocalBooking(updated):x)); }
+    catch(e){ Alert.alert("Erreur", e.message); }
+  };
   const proCompleteBooking=(b)=>{
-    confirm("Marquer terminé", `Débloque ${money(b.total)} pour ton bureau - Code ${b.bookingCode}`, ()=>{
-      const u={...b,status:BOOKING_STEPS[2],step:2}; setBookings(bs=>bs.map(x=>x.id===b.id?u:x));
+    confirm("Marquer terminé", `Débloque ${money(b.total)} pour ton bureau - Code ${b.bookingCode}`, async()=>{
+      try{
+        const updated=await apiCompleteBooking(accessToken, b.id);
+        setBookings(bs=>bs.map(x=>x.id===b.id?serverToLocalBooking(updated):x));
+        setIncomingBookings(bs=>bs.map(x=>x.id===b.id?serverToLocalBooking(updated):x));
+      }catch(e){ Alert.alert("Erreur", e.message); }
     });
   };
   const cancelBooking=(b)=>{
-    confirm("Annuler la réservation", "Le montant sera remboursé - SIMULATION", ()=>{
-      setBookings(bs=>bs.filter(x=>x.id!==b.id));
-      setWallet(w=>w+b.total);
-      setWalletHistory(h=>[{id:uid("h"),type:`SIMULATION TEST - Remboursement réservation annulée - Code ${b.bookingCode}`,amount:b.total,icon:"↩️",color:"#00a651"},...h]);
-      nav("home");
+    confirm("Annuler la réservation", "Le montant sera remboursé", async()=>{
+      try{
+        await apiCancelBooking(accessToken, b.id);
+        setBookings(bs=>bs.filter(x=>x.id!==b.id));
+        await refreshWalletBalance();
+        setWalletHistory(h=>[{id:uid("h"),type:`Remboursement réservation annulée - Code ${b.bookingCode}`,amount:b.total,icon:"↩️",color:"#00a651"},...h]);
+        nav("home");
+      }catch(e){ Alert.alert("Erreur", e.message); }
     });
   };
 
@@ -596,7 +768,7 @@ export default function App(){
     Alert.alert("Vérifié","SIMULATION TEST - dans une vraie version, un humain ou un service tiers doit contrôler le document avant validation.");
   };
 
-  const takeDelivery=(order)=>{ const u={...order,status:STEPS[3],step:3}; setOrders(os=>os.map(or=>or.id===order.id?u:or)); };
+  // (la prise de livraison se fait maintenant via doAdvance, voir écran "courier" plus bas)
 
   const T = dark
     ? { bg:"#121417", card:"#1D2024", text:"#F3F4F6", sub:"rgba(243,244,246,0.6)", header:"#1D2024" }
@@ -815,6 +987,15 @@ export default function App(){
       {my.map(p=>{ const bloq=Date.now()-p.last<R.BLOQUE*86400000; return (
         <View key={p.id} style={[styles.myProd5D,{backgroundColor:T.card}]}><Image source={{uri:p.img}} style={styles.myProdImg5D}/><View style={{flex:1}}><Text style={[styles.myProdName5D,{color:T.text}]}>{p.name} {bloq?`🔒 ${R.BLOQUE}j`:''}</Text><Text style={styles.myProdPrice5D}>Prix {money(p.price)} • Stock {p.stock}</Text></View><TouchableOpacity onPress={()=>shareProduct(p)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>📤 Partager</Text></TouchableOpacity><TouchableOpacity onPress={()=>openEdit(p)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>✏️ Modifier</Text></TouchableOpacity></View>
       );})}
+
+      <Text style={[styles.section5D,{color:T.text}]}>📦 Commandes reçues</Text>
+      {incomingOrders.length===0 && <Text style={styles.settingsSub}>Aucune commande pour le moment.</Text>}
+      {incomingOrders.map(o=>(
+        <View key={o.id} style={[styles.myProd5D,{backgroundColor:T.card}]}>
+          <View style={{flex:1}}><Text style={[styles.myProdName5D,{color:T.text}]}>{o.product.name} • Code {o.codeLivraison}</Text><Text style={styles.myProdPrice5D}>{o.status} • {money(o.total)}</Text></View>
+          {o.step<=1 && <TouchableOpacity onPress={()=>doAdvance(o, refreshIncomingOrders)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>➜ Étape suivante</Text></TouchableOpacity>}
+        </View>
+      ))}
       <Modal visible={showAdd} transparent animationType="slide"><View style={styles.modalBg5D}><View style={styles.modal5D}>
         <Text style={styles.modalTitle5D}>＋ Nouveau produit</Text>
         <TextInput value={npName} onChangeText={setNpName} placeholder="Nom" style={styles.input5D}/>
@@ -893,12 +1074,12 @@ export default function App(){
   // ---- Bureau Pro ----
   if(page==="pro"){
     if(!hasRole("pro")) return <RoleGate T={T} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} info={ROLES_INFO.pro} onActivate={()=>nav("settings")} actionLabel="Activer dans les Paramètres"/>;
-    const my=services.filter(s=>s.bureau===user.bureau); const myBookings=bookings.filter(b=>b.service.bureau===user.bureau); const rating=avgRating(user.bureau);
+    const my=services.filter(s=>s.proId===user.id); const rating=avgRating(user.bureau);
     return (<Page title={`Bureau Pro - ${R.BLOQUE}j`} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <Banner color={BANNERS.pro.color} icon={BANNERS.pro.icon} style={styles.spaceHero5D} radius={22}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🧑‍💼 {user.bureau} {isVerified("pro")?"✅":""}</Text><Text style={styles.spaceSub5D}>{user.domaine} • {rating?`⭐ ${rating.avg}/5 (${rating.count} avis)`:"Pas encore d'avis"}</Text></View></Banner>
 
-      {myBookings.length>0 && (<><Text style={[styles.section5D,{color:T.text}]}>📅 Mes réservations</Text>
-        {myBookings.map(b=>(<View key={b.id} style={[styles.myProd5D,{backgroundColor:T.card}]}>
+      {incomingBookings.length>0 && (<><Text style={[styles.section5D,{color:T.text}]}>📅 Mes réservations</Text>
+        {incomingBookings.map(b=>(<View key={b.id} style={[styles.myProd5D,{backgroundColor:T.card}]}>
           <View style={{flex:1}}><Text style={[styles.myProdName5D,{color:T.text}]}>{b.service.name} - {b.slot.label}</Text><Text style={styles.myProdPrice5D}>Code {b.bookingCode} • {b.status}</Text></View>
           {b.status==="Demande envoyée" && <TouchableOpacity onPress={()=>proConfirmBooking(b)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>Confirmer</Text></TouchableOpacity>}
           {b.status==="Confirmée" && <TouchableOpacity onPress={()=>proCompleteBooking(b)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>Terminer</Text></TouchableOpacity>}
@@ -938,9 +1119,9 @@ export default function App(){
       {!selectedOrder ? <View style={styles.empty5D}><Text>Aucune commande</Text></View> : (<>
         <View style={[styles.card5DLarge,{backgroundColor:T.card}]}><View style={{flexDirection:'row',gap:12}}><Image source={{uri:selectedOrder.product.img}} style={styles.checkoutImg5D}/><View style={{flex:1}}><Text style={[styles.cardTitle5D,{color:T.text}]}>{selectedOrder.product.name} - Code {selectedOrder.codeLivraison}</Text><Text style={styles.checkoutTotal5D}>Total {money(selectedOrder.total)}</Text></View></View></View>
         <View style={[styles.timeline5D,{backgroundColor:T.card}]}>{STEPS.map((s,i)=>{ const act=i<=selectedOrder.step; return (<View key={s} style={styles.timeRow5D}><View style={[styles.timeCircle5D,act&&styles.timeActive5D]}><Text>{act?"✓":"•"}</Text></View><Text style={[styles.timeTitle5D,act&&styles.timeActiveTitle5D]}>{s}</Text></View>);})}</View>
-        {selectedOrder.step<4 && <TouchableOpacity style={styles.buy5D} onPress={()=>advance(selectedOrder)}><Text style={styles.buy5DT}>Avancer - SIMULATION</Text></TouchableOpacity>}
-        {selectedOrder.step===4 && selectedOrder.status!=="Confirmée - SIMULATION" && <TouchableOpacity style={styles.buy5D} onPress={()=>confirmReception(selectedOrder)}><Text style={styles.buy5DT}>✅ Confirmer réception</Text></TouchableOpacity>}
-        {selectedOrder.status==="Confirmée - SIMULATION" && <TouchableOpacity style={styles.buy5D} onPress={()=>openReview(selectedOrder.merchant, selectedOrder.id)}><Text style={styles.buy5DT}>⭐ Laisser un avis</Text></TouchableOpacity>}
+        {selectedOrder.step<4 && <Text style={[styles.settingsSub,{textAlign:"center",marginTop:8}]}>⏳ En attente du commerçant/livreur pour la prochaine étape</Text>}
+        {selectedOrder.step===4 && selectedOrder.status!=="Confirmée" && <TouchableOpacity style={styles.buy5D} onPress={()=>confirmReception(selectedOrder)}><Text style={styles.buy5DT}>✅ Confirmer réception</Text></TouchableOpacity>}
+        {selectedOrder.status==="Confirmée" && <TouchableOpacity style={styles.buy5D} onPress={()=>openReview(selectedOrder.merchant, selectedOrder.id)}><Text style={styles.buy5DT}>⭐ Laisser un avis</Text></TouchableOpacity>}
         <TouchableOpacity style={styles.secondary5D} onPress={()=>{ setSupportThread(selectedOrder.id); nav("support"); }}><Text style={styles.secondary5DT}>💬 Support / Signaler un problème</Text></TouchableOpacity>
       </>)}
       <ReviewModal visible={!!reviewModal} rating={reviewRating} setRating={setReviewRating} comment={reviewComment} setComment={setReviewComment} onCancel={()=>setReviewModal(null)} onSubmit={submitReview}/>
@@ -993,7 +1174,12 @@ export default function App(){
     if(!hasRole("livreur")) return <RoleGate T={T} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} info={ROLES_INFO.livreur} onActivate={()=>nav("settings")} actionLabel="Activer dans les Paramètres"/>;
     return (<Page title={`Livreur - ${R.SPLIT_LIVREUR}F`} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <Banner color={BANNERS.courier.color} icon={BANNERS.courier.icon} style={styles.spaceHero5D} radius={22}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🚚 {user.vehicule} {isVerified("livreur")?"✅":""}</Text><Text style={styles.spaceSub5D}>{R.SPLIT_LIVREUR}F + {R.BONUS_LIVRAISON}pts par livraison confirmée</Text></View></Banner>
-      {orders.filter(o=>o.step===2).map(o=>(<View key={o.id} style={[styles.delivery5D,{backgroundColor:T.card}]}><Text style={[styles.deliveryTitle5D,{color:T.text}]}>{o.code} - Code {o.codeLivraison}</Text><TouchableOpacity style={styles.buy5D} onPress={()=>takeDelivery(o)}><Text style={styles.buy5DT}>Prendre - {R.SPLIT_LIVREUR}F</Text></TouchableOpacity></View>))}
+      <Text style={[styles.section5D,{color:T.text}]}>📦 Livraisons disponibles</Text>
+      {availableDeliveries.length===0 && <Text style={styles.settingsSub}>Aucune livraison disponible pour l'instant.</Text>}
+      {availableDeliveries.map(o=>(<View key={o.id} style={[styles.delivery5D,{backgroundColor:T.card}]}><Text style={[styles.deliveryTitle5D,{color:T.text}]}>{o.product.name} - Code {o.codeLivraison}</Text><TouchableOpacity style={styles.buy5D} onPress={()=>doAdvance(o, async()=>{ await refreshAvailableDeliveries(); await refreshMyDeliveries(); })}><Text style={styles.buy5DT}>Prendre - {R.SPLIT_LIVREUR}F</Text></TouchableOpacity></View>))}
+      <Text style={[styles.section5D,{color:T.text}]}>🚚 Mes livraisons en cours</Text>
+      {myDeliveries.filter(o=>o.step<4).length===0 && <Text style={styles.settingsSub}>Aucune livraison en cours.</Text>}
+      {myDeliveries.filter(o=>o.step<4).map(o=>(<View key={o.id} style={[styles.delivery5D,{backgroundColor:T.card}]}><Text style={[styles.deliveryTitle5D,{color:T.text}]}>{o.product.name} - Code {o.codeLivraison}</Text><Text style={styles.settingsSub}>{o.status}</Text><TouchableOpacity style={styles.buy5D} onPress={()=>doAdvance(o, refreshMyDeliveries)}><Text style={styles.buy5DT}>✅ Marquer livrée</Text></TouchableOpacity></View>))}
     </Page>);
   }
 
