@@ -261,6 +261,34 @@ const BANNERS = {
   settings:{ color:"#374151", icon:"⚙️" },
 };
 
+// ---- Langues (démarrage : Français + Anglais - les 2 langues officielles
+// du Cameroun ; d'autres langues pourront être ajoutées plus tard en
+// complétant simplement ce dictionnaire, sans toucher au reste du code) ----
+const I18N = {
+  fr: {
+    welcome_title:"Bienvenue sur MERCA", welcome_sub:"SIMULATION TEST - pas de vrai SMS envoyé",
+    guest_btn:"👀 Continuer sans compte (accès limité)",
+    guest_note:"Sans compte : tu peux voir le catalogue avec la recherche exacte, mais pas les points de bienvenue, pas d'achat, pas d'accès à PERMUTA ni aux réservations. Inscris-toi pour tout débloquer.",
+    create_account_title:"Créer un compte complet", name_placeholder:"Nom complet", phone_placeholder:"Numéro de téléphone", city_placeholder:"Ville",
+    how_use_title:"Comment veux-tu utiliser MERCA ?", client_only_label:"Client uniquement", client_only_desc:"Acheter, gagner des points",
+    details_title:"Détails", receive_code_btn:"Recevoir mon code par SMS", sending_code:"Envoi du code... (jusqu'à 1 min la 1ère fois, le serveur se réveille)",
+    code_sent_title:"Code envoyé au", code_sim_note:"⚠️ SIMULATION TEST : aucun vrai SMS n'est encore envoyé. Le code ci-dessous a été rempli automatiquement pour tester.",
+    code_placeholder:"Code à 6 chiffres", verifying:"Vérification...", validate_btn:"Valider", welcome_pts:"pts de bienvenue", edit_info_link:"← Modifier mes informations",
+    lang_label:"Langue",
+  },
+  en: {
+    welcome_title:"Welcome to MERCA", welcome_sub:"TEST SIMULATION - no real SMS sent yet",
+    guest_btn:"👀 Continue without an account (limited access)",
+    guest_note:"Without an account: you can browse the catalog with exact search, but no welcome points, no purchases, no access to PERMUTA or bookings. Sign up to unlock everything.",
+    create_account_title:"Create a full account", name_placeholder:"Full name", phone_placeholder:"Phone number", city_placeholder:"City",
+    how_use_title:"How do you want to use MERCA?", client_only_label:"Client only", client_only_desc:"Buy products, earn points",
+    details_title:"Details", receive_code_btn:"Receive my code by SMS", sending_code:"Sending code... (up to 1 min the first time, server waking up)",
+    code_sent_title:"Code sent to", code_sim_note:"⚠️ TEST SIMULATION: no real SMS sent yet. The code below was filled in automatically for testing.",
+    code_placeholder:"6-digit code", verifying:"Verifying...", validate_btn:"Confirm", welcome_pts:"welcome pts", edit_info_link:"← Edit my information",
+    lang_label:"Language",
+  },
+};
+
 const INITIAL_PRODUCTS = [
   {id:"p1",name:"iPhone X 64Go",price:95000,cat:"Téléphones",shop:"Merca Mobile",rating:4.7,stock:5,desc:"Bon état 88% - Yaoundé Bastos",ville:"Yaoundé",rayon:0.5,last:0,img:IMG.iphone},
   {id:"p2",name:"Samsung A54 128Go",price:85000,cat:"Téléphones",shop:"Merca Mobile",rating:4.8,stock:8,desc:"Neuf scellé",ville:"Yaoundé",rayon:1.2,last:0,img:IMG.samsung},
@@ -313,6 +341,8 @@ export default function App(){
   const [showAlternatives,setShowAlternatives]=useState(false);
   const [favorites,setFavorites]=useState([]);
   const [dark,setDark]=useState(false);
+  const [lang,setLang]=useState("fr");
+  const t=(key)=> (I18N[lang] && I18N[lang][key]) || I18N.fr[key] || key;
   const [notifEnabled,setNotifEnabled]=useState(true);
   const [reviews,setReviews]=useState([]); const [messages,setMessages]=useState([]); const [disputes,setDisputes]=useState([]);
 
@@ -378,6 +408,7 @@ export default function App(){
         if(s.walletPin) setWalletPin(s.walletPin);
         if(s.favorites) setFavorites(s.favorites);
         if(typeof s.dark==="boolean") setDark(s.dark);
+        if(s.lang) setLang(s.lang);
         if(typeof s.notifEnabled==="boolean") setNotifEnabled(s.notifEnabled);
         if(s.reviews) setReviews(s.reviews);
         if(s.messages) setMessages(s.messages);
@@ -389,8 +420,8 @@ export default function App(){
 
   useEffect(()=>{
     if(!ready) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ user, accessToken, products, services, orders, bookings, wallet, points, orDate, walletHistory, walletPin, favorites, dark, notifEnabled, reviews, messages, disputes })).catch(()=>{});
-  },[ready, user, accessToken, products, services, orders, bookings, wallet, points, orDate, walletHistory, walletPin, favorites, dark, notifEnabled, reviews, messages, disputes]);
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ user, accessToken, products, services, orders, bookings, wallet, points, orDate, walletHistory, walletPin, favorites, dark, lang, notifEnabled, reviews, messages, disputes })).catch(()=>{});
+  },[ready, user, accessToken, products, services, orders, bookings, wallet, points, orDate, walletHistory, walletPin, favorites, dark, lang, notifEnabled, reviews, messages, disputes]);
 
   useEffect(()=>{ const t=setTimeout(()=>setDebouncedSearch(search),300); return ()=>clearTimeout(t); },[search]);
 
@@ -792,35 +823,40 @@ export default function App(){
     return (
       <SafeAreaView style={[styles.container,{backgroundColor:T.bg}]}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={{flexDirection:"row",justifyContent:"flex-end",marginBottom:8}}>
+            <TouchableOpacity onPress={()=>setLang(l=>l==="fr"?"en":"fr")} style={{backgroundColor:T.card,borderRadius:20,paddingHorizontal:14,paddingVertical:6}}>
+              <Text style={{color:T.text,fontWeight:"700"}}>{lang==="fr"?"🇫🇷 FR":"🇬🇧 EN"}</Text>
+            </TouchableOpacity>
+          </View>
           <Banner color={BANNERS.auth.color} icon={BANNERS.auth.icon} style={styles.hero5D} radius={24}>
-            <View style={styles.hero5DOverlay}><Text style={styles.hero5DTitle}>Bienvenue sur MERCA</Text><Text style={styles.hero5DSub}>SIMULATION TEST - pas de vrai SMS envoyé</Text></View>
+            <View style={styles.hero5DOverlay}><Text style={styles.hero5DTitle}>{t("welcome_title")}</Text><Text style={styles.hero5DSub}>{t("welcome_sub")}</Text></View>
           </Banner>
 
           {otpStep==="form" && (
           <TouchableOpacity style={styles.guestBtn5D} onPress={continueAsGuest}>
-            <Text style={styles.guestBtn5DT}>👀 Continuer sans compte (accès limité)</Text>
+            <Text style={styles.guestBtn5DT}>{t("guest_btn")}</Text>
           </TouchableOpacity>
           )}
-          {otpStep==="form" && <Text style={styles.ruleD5D}>Sans compte : tu peux voir le catalogue avec la recherche exacte, mais pas les points de bienvenue, pas d'achat, pas d'accès à PERMUTA ni aux réservations. Inscris-toi pour tout débloquer.</Text>}
+          {otpStep==="form" && <Text style={styles.ruleD5D}>{t("guest_note")}</Text>}
 
           {otpStep==="form" ? (
           <>
           <View style={[styles.card5DLarge,{backgroundColor:T.card, marginTop:16}]}>
-            <Text style={[styles.cardTitle5D,{color:T.text}]}>Créer un compte complet</Text>
-            <TextInput value={regName} onChangeText={setRegName} placeholder="Nom complet" style={styles.input5D}/>
-            <TextInput value={regPhone} onChangeText={setRegPhone} placeholder="Numéro de téléphone" keyboardType="phone-pad" style={styles.input5D}/>
-            <TextInput value={regCity} onChangeText={setRegCity} placeholder="Ville" style={styles.input5D}/>
+            <Text style={[styles.cardTitle5D,{color:T.text}]}>{t("create_account_title")}</Text>
+            <TextInput value={regName} onChangeText={setRegName} placeholder={t("name_placeholder")} style={styles.input5D}/>
+            <TextInput value={regPhone} onChangeText={setRegPhone} placeholder={t("phone_placeholder")} keyboardType="phone-pad" style={styles.input5D}/>
+            <TextInput value={regCity} onChangeText={setRegCity} placeholder={t("city_placeholder")} style={styles.input5D}/>
           </View>
 
-          <Text style={[styles.section5D,{color:T.text}]}>Comment veux-tu utiliser MERCA ?</Text>
-          <RoleCard active={regRole===null} icon={ROLES_INFO.client.icon} color={ROLES_INFO.client.color} label="Client uniquement" desc="Acheter, gagner des points" onPress={()=>setRegRole(null)}/>
+          <Text style={[styles.section5D,{color:T.text}]}>{t("how_use_title")}</Text>
+          <RoleCard active={regRole===null} icon={ROLES_INFO.client.icon} color={ROLES_INFO.client.color} label={t("client_only_label")} desc={t("client_only_desc")} onPress={()=>setRegRole(null)}/>
           {["commercant","livreur","pro"].map(key=>(
             <RoleCard key={key} active={regRole===key} icon={ROLES_INFO[key].icon} color={ROLES_INFO[key].color} label={ROLES_INFO[key].label} desc={ROLES_INFO[key].desc} onPress={()=>setRegRole(key)}/>
           ))}
 
           {regRole && (
             <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
-              <Text style={[styles.cardTitle5D,{color:T.text}]}>Détails {ROLES_INFO[regRole].label}</Text>
+              <Text style={[styles.cardTitle5D,{color:T.text}]}>{t("details_title")} {ROLES_INFO[regRole].label}</Text>
               <TextInput value={regExtra} onChangeText={setRegExtra} placeholder={ROLES_INFO[regRole].champ} style={styles.input5D}/>
               {regRole==="pro" && (<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginTop:8}}>{PRO_DOMAINES.map(d=><TouchableOpacity key={d} style={[styles.cat5D,regDomaine===d&&styles.cat5DActive]} onPress={()=>setRegDomaine(d)}><Text style={regDomaine===d?styles.cat5DActiveT:styles.cat5DT}>{d}</Text></TouchableOpacity>)}</ScrollView>)}
             </View>
@@ -828,20 +864,20 @@ export default function App(){
 
           {!!authError && <Text style={{color:"#e74c3c",marginTop:8,textAlign:"center"}}>{authError}</Text>}
           <TouchableOpacity style={styles.buy5D} onPress={startOtp} disabled={authLoading}>
-            <Text style={styles.buy5DT}>{authLoading ? "Envoi du code... (jusqu'à 1 min la 1ère fois, le serveur se réveille)" : "Recevoir mon code par SMS"}</Text>
+            <Text style={styles.buy5DT}>{authLoading ? t("sending_code") : t("receive_code_btn")}</Text>
           </TouchableOpacity>
           </>
           ) : (
           <View style={[styles.card5DLarge,{backgroundColor:T.card, marginTop:16}]}>
-            <Text style={[styles.cardTitle5D,{color:T.text}]}>Code envoyé au {regPhone}</Text>
-            <Text style={styles.ruleD5D}>⚠️ SIMULATION TEST : aucun vrai SMS n'est encore envoyé. Le code ci-dessous a été rempli automatiquement pour tester.</Text>
-            <TextInput value={otpCode} onChangeText={setOtpCode} placeholder="Code à 6 chiffres" keyboardType="number-pad" maxLength={6} style={styles.input5D}/>
+            <Text style={[styles.cardTitle5D,{color:T.text}]}>{t("code_sent_title")} {regPhone}</Text>
+            <Text style={styles.ruleD5D}>{t("code_sim_note")}</Text>
+            <TextInput value={otpCode} onChangeText={setOtpCode} placeholder={t("code_placeholder")} keyboardType="number-pad" maxLength={6} style={styles.input5D}/>
             {!!authError && <Text style={{color:"#e74c3c",marginTop:8,textAlign:"center"}}>{authError}</Text>}
             <TouchableOpacity style={styles.buy5D} onPress={confirmOtp} disabled={authLoading}>
-              <Text style={styles.buy5DT}>{authLoading ? "Vérification..." : `Valider (+${R.POINTS_INSCRIPTION} pts de bienvenue)`}</Text>
+              <Text style={styles.buy5DT}>{authLoading ? t("verifying") : `${t("validate_btn")} (+${R.POINTS_INSCRIPTION} ${t("welcome_pts")})`}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={backToAuthForm} style={{marginTop:10,alignSelf:"center"}}>
-              <Text style={{color:T.text,opacity:0.7}}>← Modifier mes informations</Text>
+              <Text style={{color:T.text,opacity:0.7}}>{t("edit_info_link")}</Text>
             </TouchableOpacity>
           </View>
           )}
@@ -1221,6 +1257,14 @@ export default function App(){
         <Text style={styles.settingsSub}>{user.phone||"Pas de numéro (invité)"} • {user.city}</Text>
         {!user.guest && <TouchableOpacity style={styles.secondary5D} onPress={openAccountEdit}><Text style={styles.secondary5DT}>Modifier mes informations</Text></TouchableOpacity>}
         {user.guest && <TouchableOpacity style={styles.buy5D} onPress={()=>setUser(null)}><Text style={styles.buy5DT}>Créer un compte complet</Text></TouchableOpacity>}
+      </View>
+
+      <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
+        <Text style={[styles.cardTitle5D,{color:T.text}]}>🌐 {t("lang_label")}</Text>
+        <View style={{flexDirection:"row",gap:8,marginTop:8}}>
+          <TouchableOpacity onPress={()=>setLang("fr")} style={[styles.cat5D,lang==="fr"&&styles.cat5DActive]}><Text style={lang==="fr"?styles.cat5DActiveT:styles.cat5DT}>🇫🇷 Français</Text></TouchableOpacity>
+          <TouchableOpacity onPress={()=>setLang("en")} style={[styles.cat5D,lang==="en"&&styles.cat5DActive]}><Text style={lang==="en"?styles.cat5DActiveT:styles.cat5DT}>🇬🇧 English</Text></TouchableOpacity>
+        </View>
       </View>
 
       {!user.guest && (<>
