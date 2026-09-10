@@ -60,7 +60,7 @@ const IMG = {
   bureau:"https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=400",
 };
 
-const R = { BLOQUE:50, FRAIS:0.033, BASE:1500, SPLIT_LIVREUR:600, SPLIT_MARCHAND:450, SPLIT_MERCA:450, BONUS_LIVRAISON:777, POINTS_INSCRIPTION:3000, ARGENT:5000, OR:11000, OR_CYCLE_MOIS:9 };
+const R = { BLOQUE:50, FRAIS_PRODUIT:0.02, FRAIS_SERVICE:0.20, BASE:1500, SPLIT_LIVREUR:600, SPLIT_MARCHAND:450, SPLIT_MERCA:450, BONUS_LIVRAISON:777, POINTS_INSCRIPTION:3000, ARGENT:5000, OR:11000, OR_CYCLE_MOIS:9 };
 
 // ---- Connexion au vrai serveur (backend) MERCA hébergé sur Render ----
 const API_BASE = "https://merca-backend-flwv.onrender.com";
@@ -406,6 +406,15 @@ export default function App(){
   const back=()=>{ if(hist.length===0){ setPage("home"); return; } setPage(hist[hist.length-1]); setHist(h=>h.slice(0,-1)); };
   const home=()=>{ setHist([]); setPage("home"); };
   const money=(v)=>Number(v||0).toLocaleString("fr-FR")+" FCFA";
+  // Accepte les numéros internationaux (tapés avec leur indicatif, ex: +33...)
+  // et garde la compatibilité avec les numéros camerounais tapés sans indicatif
+  // (dans ce cas, +237 est ajouté automatiquement).
+  const normalizePhone=(raw)=>{
+    let p=(raw||"").trim().replace(/[\s-]/g,"");
+    if(p.startsWith("00")) p="+"+p.slice(2);
+    if(!p.startsWith("+")) p="+237"+p.replace(/^0/,"");
+    return p;
+  };
   // Nettoie une description avant affichage client/partage : supprime toute
   // trace d'un ancien texte "Prix bloqué Xj" (info interne réservée au commerçant/pro)
   const cleanDesc=(d)=> (d||"").replace(/prix bloqu[ée]\s*\d+\s*j[^.\n]*\.?/gi,"").trim();
@@ -480,7 +489,7 @@ export default function App(){
     if(regRole && !regExtra.trim()) return Alert.alert("Erreur", `Le champ "${ROLES_INFO[regRole].champ}" est requis`);
     setAuthError(""); setAuthLoading(true);
     try{
-      const r = await apiRequestOtp(regPhone.trim());
+      const r = await apiRequestOtp(normalizePhone(regPhone));
       if(r && r.devCode) setOtpCode(r.devCode); // phase de test : code auto-rempli, pas de vrai SMS envoyé
       setOtpStep("code");
     }catch(e){ setAuthError(e.message); }
@@ -492,7 +501,7 @@ export default function App(){
     if(!otpCode.trim() || otpCode.trim().length!==6) return Alert.alert("Erreur","Entre le code à 6 chiffres reçu par SMS");
     setAuthError(""); setAuthLoading(true);
     try{
-      const { accessToken:token, user:serverUser } = await apiVerifyOtp(regPhone.trim(), otpCode.trim());
+      const { accessToken:token, user:serverUser } = await apiVerifyOtp(normalizePhone(regPhone), otpCode.trim());
       setAccessToken(token);
       registerPushToken(token); // en arrière-plan, ne bloque rien
 
@@ -589,7 +598,7 @@ export default function App(){
     if(Date.now()<blocked) return Alert.alert("SIMULATION TEST","Compte bloqué temporairement");
     if(!product.merchantId) return Alert.alert("Produit de démonstration","Ce produit n'existe pas vraiment sur le serveur - choisis un produit ajouté par un vrai commerçant pour passer une vraie commande.");
     const isDelivery = delivery==="Livraison MERCA";
-    const com=Math.round(product.price*R.FRAIS);
+    const com=Math.round(product.price*R.FRAIS_PRODUIT);
     const tot=product.price + (isDelivery? R.BASE + com : 0);
     if(wallet<tot) return Alert.alert("Solde insuffisant","");
     if(product.stock<=0) return Alert.alert("Rupture de stock","");
@@ -700,7 +709,7 @@ export default function App(){
   const createBooking=async()=>{
     if(user.guest) return requireAccount("réserver un service");
     if(!selectedService || !selectedSlot || !accessToken) return;
-    const com=Math.round(selectedService.price*R.FRAIS); const tot=selectedService.price+com;
+    const com=Math.round(selectedService.price*R.FRAIS_SERVICE); const tot=selectedService.price+com;
     if(wallet<tot) return Alert.alert("Solde insuffisant","");
     try{
       const created = await apiCreateBooking(accessToken, { serviceId:selectedService.id, proId:selectedService.proId, servicePrice:selectedService.price, slotAt:new Date(selectedSlot.at).toISOString(), idempotencyKey:uid("idem") });
@@ -862,7 +871,7 @@ export default function App(){
         {debouncedSearch!=='' && filteredExact.length>0 && !showAlternatives && (
           <View style={[styles.exactResult5D,{backgroundColor:T.card}]}>
             <Text style={styles.exactTitle}>✅ Produit trouvé - Prix réel d'abord</Text>
-            {filteredExact.slice(0,1).map(p=>{ const com=Math.round(p.price*R.FRAIS); return (
+            {filteredExact.slice(0,1).map(p=>{ const com=Math.round(p.price*R.FRAIS_PRODUIT); return (
               <View key={p.id} style={styles.exactCard5D}><Image source={{uri:p.img}} style={styles.exactImg}/><View style={{flex:1}}><Text style={styles.exactName}>{p.name}</Text><Text style={styles.exactPrice}>{money(p.price)} PRIX RÉEL</Text><Text style={styles.exactDetail}>Produit {money(p.price)} + 3,3% {money(com)} + Liv {R.BASE}F</Text></View></View>
             );})}
             <View style={{flexDirection:'row',gap:8,marginTop:10}}>
@@ -896,7 +905,7 @@ export default function App(){
       </View>
     );
     const renderProduct=({item:p})=>{
-      const com=Math.round(p.price*R.FRAIS); const tot=p.price+R.BASE+com; const bloq=Date.now()-p.last<R.BLOQUE*86400000; const fav=favorites.includes(p.id);
+      const com=Math.round(p.price*R.FRAIS_PRODUIT); const tot=p.price+R.BASE+com; const bloq=Date.now()-p.last<R.BLOQUE*86400000; const fav=favorites.includes(p.id);
       return (
         <TouchableOpacity style={[styles.card5D,{backgroundColor:T.card}]} onPress={()=>{ setSelected(p); nav("product"); }}>
           <Image source={{uri:p.img}} style={styles.card5DImg}/>
@@ -923,14 +932,13 @@ export default function App(){
   }
 
   if(page==="product"&&selected){
-    const com=Math.round(selected.price*R.FRAIS); const tot=selected.price+R.BASE+com; const rating=avgRating(selected.shop);
+    const com=Math.round(selected.price*R.FRAIS_PRODUIT); const tot=selected.price+R.BASE+com; const rating=avgRating(selected.shop);
     return (<Page title="Produit" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <ImageBackground source={{uri:selected.img}} style={styles.detailHero5D} imageStyle={{borderRadius:24}}><View style={styles.detailOverlay5D}><Text style={styles.detailName5D}>{selected.name}</Text><Text style={styles.detailPriceReal5D}>{money(selected.price)} PRIX RÉEL</Text></View></ImageBackground>
       {rating && <Text style={styles.ratingLine5D}>⭐ {rating.avg}/5 ({rating.count} avis) — {selected.shop}</Text>}
       <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
         <View style={styles.separationBlock}>
           <View style={styles.sepRow}><Text style={styles.sepLabel}>Produit</Text><Text style={styles.sepValue}>{money(selected.price)}</Text></View>
-          <View style={styles.sepRow}><Text style={styles.sepLabel}>Commission 3,3%</Text><Text style={styles.sepValueCom}>{money(com)}</Text></View>
           <View style={styles.sepRow}><Text style={styles.sepLabel}>Livraison {R.BASE}F</Text><Text style={styles.sepValueLiv}>{R.SPLIT_LIVREUR}+{R.SPLIT_MARCHAND}+{R.SPLIT_MERCA}</Text></View>
           <View style={[styles.sepRow,styles.sepTotal]}><Text style={styles.sepLabelTotal}>Total</Text><Text style={styles.sepValueTotal}>{money(tot)}</Text></View>
         </View>
@@ -940,7 +948,7 @@ export default function App(){
   }
 
   if(page==="checkout"){
-    const com=selected?Math.round(selected.price*R.FRAIS):0; const tot=selected?selected.price+R.BASE+com:0;
+    const com=selected?Math.round(selected.price*R.FRAIS_PRODUIT):0; const tot=selected?selected.price+R.BASE+com:0;
     return (<Page title="Checkout" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <View style={styles.security5D}><Text style={styles.securityTitle5D}>🧪 SIMULATION TEST</Text><Text style={styles.securityText5D}>PIN {walletPin} - Escrow simulé</Text></View>
       <View style={[styles.card5DLarge,{backgroundColor:T.card}]}><View style={{flexDirection:'row',gap:12}}><Image source={{uri:selected?.img}} style={styles.checkoutImg5D}/><View style={{flex:1}}><Text style={[styles.cardTitle5D,{color:T.text}]}>{selected?.name}</Text><Text style={styles.checkoutTotal5D}>Total {money(tot)}</Text></View></View></View>
@@ -1047,7 +1055,7 @@ export default function App(){
   }
 
   if(page==="bookingSlot" && selectedService){
-    const slots=genSlots(); const com=Math.round(selectedService.price*R.FRAIS); const tot=selectedService.price+com;
+    const slots=genSlots(); const com=Math.round(selectedService.price*R.FRAIS_SERVICE); const tot=selectedService.price+com;
     return (<Page title="Choisir un créneau" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <View style={[styles.card5DLarge,{backgroundColor:T.card}]}><Text style={[styles.cardTitle5D,{color:T.text}]}>{selectedService.name}</Text><Text style={styles.checkoutTotal5D}>Total {money(tot)}</Text></View>
       {slots.map(s=>(<TouchableOpacity key={s.id} style={[styles.slotBtn5D, selectedSlot?.id===s.id&&styles.slotBtnActive5D]} onPress={()=>setSelectedSlot(s)}><Text style={[styles.slotBtnT5D, selectedSlot?.id===s.id&&{color:"#fff"}]}>📅 {s.label}</Text></TouchableOpacity>))}
