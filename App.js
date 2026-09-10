@@ -67,14 +67,19 @@ const R = { BLOQUE:50, FRAIS_PRODUIT:0.02, FRAIS_SERVICE:0.20, BASE:1500, SPLIT_
 const API_BASE = "https://merca-backend-flwv.onrender.com";
 
 async function apiRequestOtp(phone){
-  const res = await fetch(`${API_BASE}/auth/otp/request`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ phone }) });
-  if(!res.ok) throw new Error("Impossible d'envoyer le code. Vérifie ta connexion internet.");
-  return res.json();
+  let res;
+  try{ res = await fetch(`${API_BASE}/auth/otp/request`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ phone }) }); }
+  catch(e){ throw new Error(`Réseau: ${e.message}`); } // ex: vraie coupure internet, message précis au lieu d'un texte générique
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message ? `Serveur (${res.status}): ${Array.isArray(data.message)?data.message.join(", "):data.message}` : `Erreur serveur (${res.status})`);
+  return data;
 }
 async function apiVerifyOtp(phone, code){
-  const res = await fetch(`${API_BASE}/auth/otp/verify`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ phone, code }) });
+  let res;
+  try{ res = await fetch(`${API_BASE}/auth/otp/verify`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ phone, code }) }); }
+  catch(e){ throw new Error(`Réseau: ${e.message}`); }
   const data = await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(data.message || "Code incorrect ou expiré");
+  if(!res.ok) throw new Error(data.message ? (Array.isArray(data.message)?data.message.join(", "):data.message) : `Erreur serveur (${res.status})`);
   return data; // { accessToken, user }
 }
 async function apiGetWallet(token){
@@ -370,6 +375,7 @@ export default function App(){
   // ---- Connexion réelle au serveur (OTP = code à usage unique envoyé par SMS) ----
   const [accessToken,setAccessToken]=useState(null);
   const [otpStep,setOtpStep]=useState("form"); // "form" = saisie infos, "code" = saisie du code reçu
+  const [authMode,setAuthMode]=useState("register"); // "register" = créer un compte, "login" = compte déjà existant
   const [otpCode,setOtpCode]=useState("");
   const [authLoading,setAuthLoading]=useState(false);
   const [authError,setAuthError]=useState("");
@@ -534,9 +540,9 @@ export default function App(){
 
   // ---- Inscription / connexion réelle (étape 1 : demander le code) ----
   const startOtp=async()=>{
-    if(!regName.trim()) return Alert.alert("Erreur","Le nom est requis");
+    if(authMode==="register" && !regName.trim()) return Alert.alert("Erreur","Le nom est requis");
     if(!regPhone.trim() || regPhone.trim().length<8) return Alert.alert("Erreur","Numéro de téléphone invalide");
-    if(regRole && !regExtra.trim()) return Alert.alert("Erreur", `Le champ "${ROLES_INFO[regRole].champ}" est requis`);
+    if(authMode==="register" && regRole && !regExtra.trim()) return Alert.alert("Erreur", `Le champ "${ROLES_INFO[regRole].champ}" est requis`);
     setAuthError(""); setAuthLoading(true);
     try{
       const r = await apiRequestOtp(normalizePhone(regPhone));
@@ -556,26 +562,31 @@ export default function App(){
       SecureStore.setItemAsync("merca_access_token", token).catch(()=>{}); // stockage chiffré
       registerPushToken(token); // en arrière-plan, ne bloque rien
 
-      // Complète le profil côté serveur (le serveur ne connaissait que le numéro jusqu'ici)
       let updated=serverUser;
-      try{ updated = await apiUpdateProfile(token, { name:regName.trim(), city:regCity }); }catch(e){}
+      let balance=0;
 
-      // Active le rôle choisi (commerçant / livreur / employé pro) côté serveur
-      if(regRole){
-        const extra={};
-        if(regRole==="commercant") extra.shopName=regExtra.trim();
-        if(regRole==="livreur") extra.vehicule=regExtra.trim();
-        if(regRole==="pro"){ extra.bureau=regExtra.trim(); extra.domaine=regDomaine; }
-        try{ updated = await apiAddRole(token, { role:regRole, ...extra }); }catch(e){}
+      if(authMode==="register"){
+        // Complète le profil côté serveur (le serveur ne connaissait que le numéro jusqu'ici)
+        try{ updated = await apiUpdateProfile(token, { name:regName.trim(), city:regCity }); }catch(e){}
+
+        // Active le rôle choisi (commerçant / livreur / employé pro) côté serveur
+        if(regRole){
+          const extra={};
+          if(regRole==="commercant") extra.shopName=regExtra.trim();
+          if(regRole==="livreur") extra.vehicule=regExtra.trim();
+          if(regRole==="pro"){ extra.bureau=regExtra.trim(); extra.domaine=regDomaine; }
+          try{ updated = await apiAddRole(token, { role:regRole, ...extra }); }catch(e){}
+        }
+        setPoints(R.POINTS_INSCRIPTION);
       }
+      // En mode "Se connecter" : on garde le profil déjà existant tel quel côté
+      // serveur (nom, ville, rôles) - on ne réécrit rien par-dessus.
 
-      // Solde réel du portefeuille (créé automatiquement par le serveur à l'inscription)
-      let balance=25000;
       try{ const w=await apiGetWallet(token); balance=Number(w.balance); }catch(e){}
 
       setUser({ id:updated.id, name:updated.name||regName.trim(), phone:updated.phone, city:updated.city||regCity, roles:updated.roles||["client"], verifiedRoles:updated.verifiedRoles||[], avatarUri:null, guest:false, createdAt:Date.now(), shopName:updated.shopName, vehicule:updated.vehicule, bureau:updated.bureau, domaine:updated.domaine });
-      setPoints(R.POINTS_INSCRIPTION); setWallet(balance);
-      setWalletHistory([{id:"h0",type:"Bonus de bienvenue (portefeuille réel du serveur)",amount:balance,icon:"🧪",color:"#888"}]);
+      setWallet(balance);
+      setWalletHistory(h=> h.length?h:[{id:"h0",type:"Portefeuille (solde réel du serveur)",amount:balance,icon:"🧪",color:"#888"}]);
       setRegName(""); setRegPhone(""); setRegExtra(""); setRegRole(null); setOtpCode(""); setOtpStep("form");
     }catch(e){ setAuthError(e.message); }
     setAuthLoading(false);
@@ -857,6 +868,17 @@ export default function App(){
           </Banner>
 
           {otpStep==="form" && (
+          <View style={{flexDirection:"row",marginTop:16,marginBottom:8,backgroundColor:T.card,borderRadius:14,padding:4}}>
+            <TouchableOpacity onPress={()=>setAuthMode("login")} style={{flex:1,paddingVertical:10,borderRadius:10,backgroundColor:authMode==="login"?BRAND:"transparent"}}>
+              <Text style={{textAlign:"center",fontWeight:"700",color:authMode==="login"?"#fff":T.text}}>{lang==="fr"?"Se connecter":"Log in"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={()=>setAuthMode("register")} style={{flex:1,paddingVertical:10,borderRadius:10,backgroundColor:authMode==="register"?BRAND:"transparent"}}>
+              <Text style={{textAlign:"center",fontWeight:"700",color:authMode==="register"?"#fff":T.text}}>{lang==="fr"?"Créer un compte":"Create account"}</Text>
+            </TouchableOpacity>
+          </View>
+          )}
+
+          {otpStep==="form" && (
           <TouchableOpacity style={styles.guestBtn5D} onPress={continueAsGuest}>
             <Text style={styles.guestBtn5DT}>{t("guest_btn")}</Text>
           </TouchableOpacity>
@@ -864,6 +886,13 @@ export default function App(){
           {otpStep==="form" && <Text style={styles.ruleD5D}>{t("guest_note")}</Text>}
 
           {otpStep==="form" ? (
+          <>
+          {authMode==="login" ? (
+          <View style={[styles.card5DLarge,{backgroundColor:T.card, marginTop:16}]}>
+            <Text style={[styles.cardTitle5D,{color:T.text}]}>{lang==="fr"?"Retrouve ton compte":"Find your account"}</Text>
+            <TextInput value={regPhone} onChangeText={setRegPhone} placeholder={t("phone_placeholder")} keyboardType="phone-pad" style={styles.input5D}/>
+          </View>
+          ) : (
           <>
           <View style={[styles.card5DLarge,{backgroundColor:T.card, marginTop:16}]}>
             <Text style={[styles.cardTitle5D,{color:T.text}]}>{t("create_account_title")}</Text>
@@ -885,6 +914,8 @@ export default function App(){
               {regRole==="pro" && (<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginTop:8}}>{PRO_DOMAINES.map(d=><TouchableOpacity key={d} style={[styles.cat5D,regDomaine===d&&styles.cat5DActive]} onPress={()=>setRegDomaine(d)}><Text style={regDomaine===d?styles.cat5DActiveT:styles.cat5DT}>{d}</Text></TouchableOpacity>)}</ScrollView>)}
             </View>
           )}
+          </>
+          )}
 
           {!!authError && <Text style={{color:"#e74c3c",marginTop:8,textAlign:"center"}}>{authError}</Text>}
           <TouchableOpacity style={styles.buy5D} onPress={startOtp} disabled={authLoading}>
@@ -898,7 +929,7 @@ export default function App(){
             <TextInput value={otpCode} onChangeText={setOtpCode} placeholder={t("code_placeholder")} keyboardType="number-pad" maxLength={6} style={styles.input5D}/>
             {!!authError && <Text style={{color:"#e74c3c",marginTop:8,textAlign:"center"}}>{authError}</Text>}
             <TouchableOpacity style={styles.buy5D} onPress={confirmOtp} disabled={authLoading}>
-              <Text style={styles.buy5DT}>{authLoading ? t("verifying") : `${t("validate_btn")} (+${R.POINTS_INSCRIPTION} ${t("welcome_pts")})`}</Text>
+              <Text style={styles.buy5DT}>{authLoading ? t("verifying") : (authMode==="register" ? `${t("validate_btn")} (+${R.POINTS_INSCRIPTION} ${t("welcome_pts")})` : t("validate_btn"))}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={backToAuthForm} style={{marginTop:10,alignSelf:"center"}}>
               <Text style={{color:T.text,opacity:0.7}}>{t("edit_info_link")}</Text>
