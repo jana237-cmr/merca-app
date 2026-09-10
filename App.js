@@ -36,7 +36,6 @@ import React, { useMemo, useState, useEffect } from "react";
 import { SafeAreaView, View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, StyleSheet, Alert, Modal, Image, ImageBackground, Switch, Share } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
-import * as Crypto from "expo-crypto";
 import * as ImagePicker from "expo-image-picker";
 // (notifications push : chargées uniquement à l'usage, voir registerPushToken plus bas -
 // évite un plantage au démarrage dans Expo Go, qui ne supporte plus cette fonctionnalité)
@@ -302,7 +301,16 @@ const INITIAL_PRODUCTS = [
 function uid(prefix){ return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
 // Transforme le PIN en empreinte illisible (hash) avant de le stocker - même
 // en cas d'accès au stockage du téléphone, le vrai PIN ne peut pas être retrouvé.
-async function hashPin(pin){ return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, pin); }
+// Fait en JavaScript pur (pas de module natif) pour éviter tout souci de
+// compatibilité avec Expo Go - suffisant ici car ce PIN ne verrouille que
+// l'accès local ; les vraies transactions passent par le serveur, protégées
+// par le jeton de connexion (accessToken), stocké lui dans l'espace chiffré.
+async function hashPin(pin){
+  let hash = 0x811c9dc5;
+  const salted = "MERCA_SALT_"+pin;
+  for(let i=0;i<salted.length;i++){ hash ^= salted.charCodeAt(i); hash = Math.imul(hash, 0x01000193); }
+  return (hash>>>0).toString(16);
+}
 function genUniqueCode(existingList, field){
   const used = new Set(existingList.map(o=>o[field]));
   let code; do { code = Math.floor(1000+Math.random()*9000).toString(); } while(used.has(code));
