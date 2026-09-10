@@ -35,6 +35,8 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { SafeAreaView, View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, StyleSheet, Alert, Modal, Image, ImageBackground, Switch, Share } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+import * as Crypto from "expo-crypto";
 import * as ImagePicker from "expo-image-picker";
 // (notifications push : chargées uniquement à l'usage, voir registerPushToken plus bas -
 // évite un plantage au démarrage dans Expo Go, qui ne supporte plus cette fonctionnalité)
@@ -298,6 +300,9 @@ const INITIAL_PRODUCTS = [
 ];
 
 function uid(prefix){ return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
+// Transforme le PIN en empreinte illisible (hash) avant de le stocker - même
+// en cas d'accès au stockage du téléphone, le vrai PIN ne peut pas être retrouvé.
+async function hashPin(pin){ return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, pin); }
 function genUniqueCode(existingList, field){
   const used = new Set(existingList.map(o=>o[field]));
   let code; do { code = Math.floor(1000+Math.random()*9000).toString(); } while(used.has(code));
@@ -335,7 +340,7 @@ export default function App(){
   const [bookings,setBookings]=useState([]); const [selectedBooking,setSelectedBooking]=useState(null);
   const [wallet,setWallet]=useState(25000); const [points,setPoints]=useState(0); const [orDate,setOrDate]=useState(null);
   const [walletHistory,setWalletHistory]=useState([]);
-  const [walletPin,setWalletPin]=useState("1234");
+  const [walletPin,setWalletPin]=useState(null); // stocke une empreinte (hash), jamais le PIN en clair
   const [pinInput,setPinInput]=useState(""); const [fails,setFails]=useState(0); const [blocked,setBlocked]=useState(0);
   const [permuta]=useState([{id:"pm1",name:"iPhone X contre Samsung",owner:"Client A",status:"Disponible",img1:IMG.iphone,img2:IMG.samsung}]);
   const [showAlternatives,setShowAlternatives]=useState(false);
@@ -396,7 +401,6 @@ export default function App(){
       if(raw){
         const s = JSON.parse(raw);
         if(s.user!==undefined) setUser(s.user);
-        if(s.accessToken) setAccessToken(s.accessToken);
         if(s.products) setProducts(s.products);
         if(s.services) setServices(s.services);
         if(s.orders) setOrders(s.orders);
@@ -405,7 +409,7 @@ export default function App(){
         if(typeof s.points==="number") setPoints(s.points);
         if(s.orDate) setOrDate(s.orDate);
         if(s.walletHistory) setWalletHistory(s.walletHistory);
-        if(s.walletPin) setWalletPin(s.walletPin);
+        if(s.walletPin) setWalletPin(s.walletPin); // c'est déjà un hash, jamais le PIN en clair
         if(s.favorites) setFavorites(s.favorites);
         if(typeof s.dark==="boolean") setDark(s.dark);
         if(s.lang) setLang(s.lang);
@@ -414,14 +418,21 @@ export default function App(){
         if(s.messages) setMessages(s.messages);
         if(s.disputes) setDisputes(s.disputes);
       }
+      // Si aucun PIN n'a encore été défini, on prépare l'empreinte du PIN par
+      // défaut "1234" (jamais stocké en clair, même la toute première fois)
+      if(!walletPin){ const defaultHash = await hashPin("1234"); setWalletPin(h=>h||defaultHash); }
+      // Le jeton de connexion est stocké séparément, dans un espace chiffré du
+      // téléphone (Keychain iOS / Keystore Android) - plus sûr qu'un simple fichier
+      const savedToken = await SecureStore.getItemAsync("merca_access_token").catch(()=>null);
+      if(savedToken) setAccessToken(savedToken);
     }catch(e){ /* SIMULATION - lecture échouée, valeurs par défaut conservées */ }
     setReady(true);
   })(); },[]);
 
   useEffect(()=>{
     if(!ready) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ user, accessToken, products, services, orders, bookings, wallet, points, orDate, walletHistory, walletPin, favorites, dark, lang, notifEnabled, reviews, messages, disputes })).catch(()=>{});
-  },[ready, user, accessToken, products, services, orders, bookings, wallet, points, orDate, walletHistory, walletPin, favorites, dark, lang, notifEnabled, reviews, messages, disputes]);
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ user, products, services, orders, bookings, wallet, points, orDate, walletHistory, walletPin, favorites, dark, lang, notifEnabled, reviews, messages, disputes })).catch(()=>{});
+  },[ready, user, products, services, orders, bookings, wallet, points, orDate, walletHistory, walletPin, favorites, dark, lang, notifEnabled, reviews, messages, disputes]);
 
   useEffect(()=>{ const t=setTimeout(()=>setDebouncedSearch(search),300); return ()=>clearTimeout(t); },[search]);
 
@@ -534,6 +545,7 @@ export default function App(){
     try{
       const { accessToken:token, user:serverUser } = await apiVerifyOtp(normalizePhone(regPhone), otpCode.trim());
       setAccessToken(token);
+      SecureStore.setItemAsync("merca_access_token", token).catch(()=>{}); // stockage chiffré
       registerPushToken(token); // en arrière-plan, ne bloque rien
 
       // Complète le profil côté serveur (le serveur ne connaissait que le numéro jusqu'ici)
@@ -589,18 +601,22 @@ export default function App(){
     setShowAccountEdit(false);
   };
 
-  const savePinChange=()=>{
+  const savePinChange=async()=>{
     if(!/^\d{4}$/.test(newPin)) return Alert.alert("Erreur","Le PIN doit contenir exactement 4 chiffres");
     if(newPin!==newPinConfirm) return Alert.alert("Erreur","Les deux codes PIN ne correspondent pas");
-    setWalletPin(newPin); setNewPin(""); setNewPinConfirm(""); setShowPinChange(false);
+    setWalletPin(await hashPin(newPin)); setNewPin(""); setNewPinConfirm(""); setShowPinChange(false);
     Alert.alert("PIN mis à jour","SIMULATION TEST");
   };
 
-  const logout=()=> confirm("Déconnexion","Tu devras te reconnecter pour revenir. Tes données restent enregistrées sur cet appareil.",()=>{ setUser(null); home(); });
+  const logout=()=> confirm("Déconnexion","Tu devras te reconnecter pour revenir. Tes données restent enregistrées sur cet appareil.",()=>{
+    SecureStore.deleteItemAsync("merca_access_token").catch(()=>{});
+    setAccessToken(null); setUser(null); home();
+  });
   const resetAllData=()=> confirm("Réinitialiser toutes les données","Cette action efface tout - SIMULATION TEST. Irréversible.",async()=>{
     await AsyncStorage.removeItem(STORAGE_KEY);
-    setUser(null); setProducts(INITIAL_PRODUCTS); setServices([]); setOrders([]); setBookings([]); setWallet(0); setPoints(0); setOrDate(null);
-    setWalletHistory([]); setWalletPin("1234"); setFavorites([]); setDark(false); setNotifEnabled(true); setReviews([]); setMessages([]); setDisputes([]); home();
+    await SecureStore.deleteItemAsync("merca_access_token").catch(()=>{});
+    setUser(null); setAccessToken(null); setProducts(INITIAL_PRODUCTS); setServices([]); setOrders([]); setBookings([]); setWallet(0); setPoints(0); setOrDate(null);
+    setWalletHistory([]); setWalletPin(await hashPin("1234")); setFavorites([]); setDark(false); setNotifEnabled(true); setReviews([]); setMessages([]); setDisputes([]); home();
   });
 
   // ---- Photo de profil (avatar) ----
@@ -986,7 +1002,7 @@ export default function App(){
   if(page==="checkout"){
     const com=selected?Math.round(selected.price*R.FRAIS_PRODUIT):0; const tot=selected?selected.price+R.BASE+com:0;
     return (<Page title="Checkout" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
-      <View style={styles.security5D}><Text style={styles.securityTitle5D}>🧪 SIMULATION TEST</Text><Text style={styles.securityText5D}>PIN {walletPin} - Escrow simulé</Text></View>
+      <View style={styles.security5D}><Text style={styles.securityTitle5D}>🧪 SIMULATION TEST</Text><Text style={styles.securityText5D}>Escrow simulé - fonds bloqués jusqu'à confirmation</Text></View>
       <View style={[styles.card5DLarge,{backgroundColor:T.card}]}><View style={{flexDirection:'row',gap:12}}><Image source={{uri:selected?.img}} style={styles.checkoutImg5D}/><View style={{flex:1}}><Text style={[styles.cardTitle5D,{color:T.text}]}>{selected?.name}</Text><Text style={styles.checkoutTotal5D}>Total {money(tot)}</Text></View></View></View>
       <TouchableOpacity style={styles.buy5D} onPress={()=>confirm("Confirmer",`Payer ${money(tot)} ?`,()=>createOrder(selected,"Livraison MERCA"))}><Text style={styles.buy5DT}>🚚 Livraison {money(tot)}</Text></TouchableOpacity>
       <TouchableOpacity style={styles.secondary5D} onPress={()=>confirm("Retrait",`Retrait ${money(selected.price)} ?`,()=>createOrder(selected,"Retrait boutique"))}><Text style={styles.secondary5DT}>🏪 Retrait boutique</Text></TouchableOpacity>
@@ -1000,9 +1016,10 @@ export default function App(){
       <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
         <Text style={[styles.cardTitle5D,{color:T.text}]}>🔐 Déverrouiller (PIN)</Text>
         <TextInput value={pinInput} onChangeText={setPinInput} placeholder="PIN" secureTextEntry keyboardType="numeric" maxLength={4} style={styles.input5D}/>
-        <TouchableOpacity style={styles.buy5D} onPress={()=>{
+        <TouchableOpacity style={styles.buy5D} onPress={async()=>{
           if(Date.now()<blocked) return Alert.alert("Bloqué","Réessaie plus tard (simulation)");
-          if(pinInput!==walletPin){ const f=fails+1; if(f>=3){ setBlocked(Date.now()+300000); setFails(0); Alert.alert("Bloqué 5min"); } else { setFails(f); Alert.alert(`Reste ${3-f} essai(s)`); } return; }
+          const h=await hashPin(pinInput);
+          if(h!==walletPin){ const f=fails+1; if(f>=3){ setBlocked(Date.now()+300000); setFails(0); Alert.alert("Bloqué 5min"); } else { setFails(f); Alert.alert(`Reste ${3-f} essai(s)`); } return; }
           setFails(0); setPinInput(""); Alert.alert("Débloqué - SIMULATION");
         }}><Text style={styles.buy5DT}>Débloquer</Text></TouchableOpacity>
       </View>
