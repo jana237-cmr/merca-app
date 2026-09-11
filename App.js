@@ -212,6 +212,27 @@ async function apiGetBookingsToFulfill(token){
   if(!res.ok) throw new Error("Impossible de charger les réservations reçues");
   return res.json();
 }
+// ---- Administration MERCA (toi uniquement - le serveur vérifie aussi ton statut admin) ----
+async function apiAdminStats(token){
+  const res = await fetch(`${API_BASE}/admin/stats`, { headers:{ Authorization:`Bearer ${token}` } });
+  if(!res.ok) throw new Error("Impossible de charger les statistiques");
+  return res.json();
+}
+async function apiAdminUsers(token){
+  const res = await fetch(`${API_BASE}/admin/users`, { headers:{ Authorization:`Bearer ${token}` } });
+  if(!res.ok) throw new Error("Impossible de charger les utilisateurs");
+  return res.json();
+}
+async function apiAdminSuspend(token, id){
+  const res = await fetch(`${API_BASE}/admin/users/${id}/suspend`, { method:"POST", headers:{ Authorization:`Bearer ${token}` } });
+  if(!res.ok) throw new Error("Impossible de suspendre ce compte");
+  return res.json();
+}
+async function apiAdminVerify(token, id, role){
+  const res = await fetch(`${API_BASE}/admin/users/${id}/verify`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify({ role }) });
+  if(!res.ok) throw new Error("Impossible de vérifier ce compte");
+  return res.json();
+}
 // Réveille le serveur dès l'ouverture de l'app (plan gratuit Render = mise en veille
 // après inactivité, jusqu'à 50-90s pour redémarrer). Appelée tout de suite au chargement,
 // pendant que l'utilisateur remplit le formulaire, pour que le serveur soit déjà prêt.
@@ -396,6 +417,13 @@ export default function App(){
   // Vérification d'identité (KYC)
   const [kycModal,setKycModal]=useState(null); const [kycDoc,setKycDoc]=useState("");
 
+  // ---- Administration MERCA (toi uniquement) ----
+  const [adminStats,setAdminStats]=useState(null);
+  const [adminUsers,setAdminUsers]=useState([]);
+  const refreshAdmin=async()=>{ if(!accessToken || !user?.isAdmin) return; try{ const [s,u]=await Promise.all([apiAdminStats(accessToken),apiAdminUsers(accessToken)]); setAdminStats(s); setAdminUsers(u); }catch(e){} };
+  const adminToggleSuspend=async(u)=>{ try{ const updated=await apiAdminSuspend(accessToken,u.id); setAdminUsers(us=>us.map(x=>x.id===u.id?updated:x)); }catch(e){ Alert.alert("Erreur",e.message); } };
+  const adminVerifyRole=async(u,role)=>{ try{ const updated=await apiAdminVerify(accessToken,u.id,role); setAdminUsers(us=>us.map(x=>x.id===u.id?updated:x)); }catch(e){ Alert.alert("Erreur",e.message); } };
+
   // ---- Chargement / sauvegarde ----
   useEffect(()=>{ apiWakeUp(); },[]); // réveille le serveur dès l'ouverture de l'app
   // Charge les vrais produits du serveur et les ajoute à ceux de démonstration
@@ -458,6 +486,7 @@ export default function App(){
     if(page==="orders" || page==="client") { refreshMyOrders(); refreshMyBookings(); }
     if(page==="pro") { refreshServices(); refreshBookingsToFulfill(); }
     if(page==="home") refreshServices();
+    if(page==="admin") refreshAdmin();
   },[page, accessToken]);
   const back=()=>{ if(hist.length===0){ setPage("home"); return; } setPage(hist[hist.length-1]); setHist(h=>h.slice(0,-1)); };
   const home=()=>{ setHist([]); setPage("home"); };
@@ -584,7 +613,7 @@ export default function App(){
 
       try{ const w=await apiGetWallet(token); balance=Number(w.balance); }catch(e){}
 
-      setUser({ id:updated.id, name:updated.name||regName.trim(), phone:updated.phone, city:updated.city||regCity, roles:updated.roles||["client"], verifiedRoles:updated.verifiedRoles||[], avatarUri:null, guest:false, createdAt:Date.now(), shopName:updated.shopName, vehicule:updated.vehicule, bureau:updated.bureau, domaine:updated.domaine });
+      setUser({ id:updated.id, name:updated.name||regName.trim(), phone:updated.phone, city:updated.city||regCity, roles:updated.roles||["client"], verifiedRoles:updated.verifiedRoles||[], avatarUri:null, guest:false, createdAt:Date.now(), shopName:updated.shopName, vehicule:updated.vehicule, bureau:updated.bureau, domaine:updated.domaine, isAdmin:!!updated.isAdmin });
       setWallet(balance);
       setWalletHistory(h=> h.length?h:[{id:"h0",type:"Portefeuille (solde réel du serveur)",amount:balance,icon:"🧪",color:"#888"}]);
       setRegName(""); setRegPhone(""); setRegExtra(""); setRegRole(null); setOtpCode(""); setOtpStep("form");
@@ -1296,6 +1325,37 @@ export default function App(){
     </Page>);
   }
 
+  // ================= ADMINISTRATION (toi uniquement) =================
+  if(page==="admin"){
+    if(!user.isAdmin) return <RoleGate T={T} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} info={{icon:"🛡️",label:"Administration",color:"#111",desc:"Accès réservé"}} onActivate={home} actionLabel="Retour à l'accueil"/>;
+    return (<Page title="🛡️ Administration MERCA" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
+      <TouchableOpacity style={styles.secondary5D} onPress={refreshAdmin}><Text style={styles.secondary5DT}>🔄 Rafraîchir</Text></TouchableOpacity>
+      {adminStats && (
+        <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
+          <Text style={[styles.cardTitle5D,{color:T.text}]}>📊 Statistiques</Text>
+          <Text style={[styles.settingsLine,{color:T.text}]}>{adminStats.totalUsers} utilisateurs</Text>
+          <Text style={styles.settingsSub}>{adminStats.totalCommercants} commerçants • {adminStats.totalLivreurs} livreurs • {adminStats.totalPros} employés pro</Text>
+          <Text style={styles.settingsSub}>{adminStats.totalProducts} produits • {adminStats.totalOrders} commandes • {adminStats.totalBookings} réservations</Text>
+          <Text style={[styles.settingsLine,{color:T.text,marginTop:8}]}>Revenus commission</Text>
+          <Text style={styles.settingsSub}>Produits: {money(adminStats.revenueProducts)} • Services: {money(adminStats.revenueServices)}</Text>
+        </View>
+      )}
+      <Text style={[styles.section5D,{color:T.text}]}>👥 Utilisateurs ({adminUsers.length})</Text>
+      {adminUsers.map(u=>(
+        <View key={u.id} style={[styles.myProd5D,{backgroundColor:T.card, flexDirection:"column", alignItems:"stretch"}]}>
+          <Text style={[styles.myProdName5D,{color:T.text}]}>{u.name||"(sans nom)"} {u.isAdmin?"🛡️":""} {u.isSuspended?"⛔":""}</Text>
+          <Text style={styles.myProdPrice5D}>{u.phone} • {u.city||"?"} • {(u.roles||[]).join(", ")}</Text>
+          <View style={{flexDirection:"row",flexWrap:"wrap",gap:6,marginTop:8}}>
+            <TouchableOpacity onPress={()=>adminToggleSuspend(u)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>{u.isSuspended?"✅ Réactiver":"⛔ Suspendre"}</Text></TouchableOpacity>
+            {(u.roles||[]).filter(r=>r!=="client" && !(u.verifiedRoles||[]).includes(r)).map(r=>(
+              <TouchableOpacity key={r} onPress={()=>adminVerifyRole(u,r)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>✅ Vérifier {r}</Text></TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ))}
+    </Page>);
+  }
+
   // ================= PARAMÈTRES =================
   if(page==="settings"){
     const missingRoles = Object.keys(ROLES_INFO).filter(r=>r!=="client" && !hasRole(r));
@@ -1306,6 +1366,13 @@ export default function App(){
         <TouchableOpacity style={styles.secondary5D} onPress={pickAvatar}><Text style={styles.secondary5DT}>📷 Changer ma photo de profil</Text></TouchableOpacity>
         <Text style={styles.settingsSub}>Utilisée dans toute l'app (pas l'icône du téléphone — voir note ci-dessous)</Text>
       </View>
+
+      {user.isAdmin && (
+        <TouchableOpacity style={[styles.card5DLarge,{backgroundColor:"#111"}]} onPress={()=>nav("admin")}>
+          <Text style={{color:"#fff",fontSize:14,fontWeight:"900"}}>🛡️ Administration MERCA</Text>
+          <Text style={{color:"rgba(255,255,255,0.7)",fontSize:11,marginTop:2}}>Statistiques, utilisateurs, vérifications, suspensions</Text>
+        </TouchableOpacity>
+      )}
 
       <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
         <Text style={[styles.cardTitle5D,{color:T.text}]}>👤 Mon compte</Text>
