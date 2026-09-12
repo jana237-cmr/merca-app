@@ -249,6 +249,18 @@ async function apiAdminVerify(token, id, role){
   if(!res.ok) throw new Error("Impossible de vérifier ce compte");
   return res.json();
 }
+// ---- Avis réels (liés à une vraie commande/réservation confirmée) ----
+async function apiCreateReview(token, dto){
+  const res = await fetch(`${API_BASE}/reviews`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify(dto) });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message ? (Array.isArray(data.message)?data.message.join(", "):data.message) : "Impossible d'envoyer l'avis");
+  return data;
+}
+async function apiGetReviewsForTarget(targetUserId){
+  const res = await fetch(`${API_BASE}/reviews/target/${targetUserId}`);
+  if(!res.ok) throw new Error("Impossible de charger les avis");
+  return res.json(); // { avg, count, reviews }
+}
 // Réveille le serveur dès l'ouverture de l'app (plan gratuit Render = mise en veille
 // après inactivité, jusqu'à 50-90s pour redémarrer). Appelée tout de suite au chargement,
 // pendant que l'utilisateur remplit le formulaire, pour que le serveur soit déjà prêt.
@@ -540,6 +552,11 @@ export default function App(){
     if(page==="home") refreshServices();
     if(page==="admin") refreshAdmin();
     if(page==="circle") refreshCircle();
+    if(page==="product" && selected?.merchantId) loadRating(selected.merchantId);
+    if(page==="merchant" && user?.id) loadRating(user.id);
+    if(page==="services") dispoServices.forEach(s=>loadRating(s.proId));
+    if(page==="serviceDetail" && selectedService?.proId) loadRating(selectedService.proId);
+    if(page==="pro" && user?.id) loadRating(user.id);
   },[page, accessToken]);
   const back=()=>{ if(hist.length===0){ setPage("home"); return; } setPage(hist[hist.length-1]); setHist(h=>h.slice(0,-1)); };
   const home=()=>{ setHist([]); setPage("home"); };
@@ -606,11 +623,14 @@ export default function App(){
     Share.share({ message: texte }).catch(()=>{});
   };
 
-  const avgRating=(targetName)=>{
-    const rs=reviews.filter(r=>r.targetName===targetName);
-    if(rs.length===0) return null;
-    const avg=rs.reduce((s,r)=>s+r.rating,0)/rs.length;
-    return { avg: Math.round(avg*10)/10, count: rs.length };
+  // Cache des notes moyennes, indexé par vrai identifiant de compte (pas par
+  // nom de boutique comme avant) - alimenté par le serveur à la demande.
+  const [ratingsCache,setRatingsCache]=useState({});
+  const getRating=(targetUserId)=> targetUserId ? ratingsCache[targetUserId] : null;
+  const loadRating=async(targetUserId)=>{
+    if(!targetUserId || ratingsCache[targetUserId]!==undefined) return;
+    try{ const r=await apiGetReviewsForTarget(targetUserId); setRatingsCache(c=>({...c,[targetUserId]: r.avg?{avg:r.avg,count:r.count}:null})); }
+    catch(e){ setRatingsCache(c=>({...c,[targetUserId]:null})); }
   };
 
   // ---- Partage marketing gratuit (ouvre Facebook, Instagram, WhatsApp... déjà installés sur le téléphone) ----
@@ -898,12 +918,15 @@ export default function App(){
   };
 
   // ---- Avis ----
-  const openReview=(targetName, refId)=>{ setReviewModal({targetName, refId}); setReviewRating(5); setReviewComment(""); };
-  const submitReview=()=>{
-    if(!reviewModal) return;
-    setReviews(rs=>[{ id:uid("rv"), targetName:reviewModal.targetName, refId:reviewModal.refId, rating:reviewRating, comment:reviewComment.trim(), author:user.name, createdAt:Date.now() }, ...rs]);
-    setReviewModal(null);
-    Alert.alert("Merci !","Ton avis a été enregistré - SIMULATION TEST");
+  const openReview=(targetUserId, refOrderId, refBookingId)=>{ setReviewModal({targetUserId, refOrderId, refBookingId}); setReviewRating(5); setReviewComment(""); };
+  const submitReview=async()=>{
+    if(!reviewModal || !accessToken) return;
+    try{
+      await apiCreateReview(accessToken, { targetUserId:reviewModal.targetUserId, rating:reviewRating, comment:reviewComment.trim()||undefined, refOrderId:reviewModal.refOrderId, refBookingId:reviewModal.refBookingId });
+      setRatingsCache(c=>{ const n={...c}; delete n[reviewModal.targetUserId]; return n; }); // force un rechargement de la note à jour
+      setReviewModal(null);
+      Alert.alert("Merci !","Ton avis a été enregistré");
+    }catch(e){ Alert.alert("Erreur", e.message); }
   };
 
   // ---- Support (messages + litige) ----
@@ -1112,7 +1135,7 @@ export default function App(){
   }
 
   if(page==="product"&&selected){
-    const com=Math.round(selected.price*R.FRAIS_PRODUIT); const tot=selected.price+R.BASE+com; const rating=avgRating(selected.shop);
+    const com=Math.round(selected.price*R.FRAIS_PRODUIT); const tot=selected.price+R.BASE+com; const rating=getRating(selected.merchantId);
     return (<Page title="Produit" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <ImageBackground source={{uri:selected.img}} style={styles.detailHero5D} imageStyle={{borderRadius:24}}><View style={styles.detailOverlay5D}><Text style={styles.detailName5D}>{selected.name}</Text><Text style={styles.detailPriceReal5D}>{money(selected.price)} PRIX RÉEL</Text></View></ImageBackground>
       {rating && <Text style={styles.ratingLine5D}>⭐ {rating.avg}/5 ({rating.count} avis) — {selected.shop}</Text>}
@@ -1168,7 +1191,7 @@ export default function App(){
 
   if(page==="merchant"){
     if(!hasRole("commercant")) return <RoleGate T={T} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} info={ROLES_INFO.commercant} onActivate={()=>nav("settings")} actionLabel="Activer dans les Paramètres"/>;
-    const my=products.filter(p=>p.shop===user.shopName); const rating=avgRating(user.shopName);
+    const my=products.filter(p=>p.shop===user.shopName); const rating=getRating(user.id);
     return (<Page title={`Boutique - ${R.BLOQUE}j`} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <Banner color={BANNERS.merchant.color} icon={BANNERS.merchant.icon} style={styles.spaceHero5D} radius={22}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🏪 {user.shopName} {isVerified("commercant")?"✅":""}</Text><Text style={styles.spaceSub5D}>{rating?`⭐ ${rating.avg}/5 (${rating.count} avis)`:"Pas encore d'avis"}</Text></View></Banner>
       <TouchableOpacity style={[styles.add5D,{backgroundColor:T.card}]} onPress={()=>setShowAdd(true)}><Image source={{uri:IMG.boutique}} style={styles.addImg5D}/><View style={{flex:1}}><Text style={[styles.addT5D,{color:T.text}]}>＋ Ajouter produit</Text></View></TouchableOpacity>
@@ -1209,7 +1232,7 @@ export default function App(){
     return (<Page title="Services Pro" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <Banner color={BANNERS.services.color} icon={BANNERS.services.icon} style={styles.spaceHero5D} radius={22}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🧑‍💼 Tous les services disponibles</Text></View></Banner>
       {dispoServices.length===0 && <View style={styles.empty5D}><Text>Aucun service publié pour l'instant</Text></View>}
-      {dispoServices.map(s=>{ const rating=avgRating(s.bureau); return (
+      {dispoServices.map(s=>{ const rating=getRating(s.proId); return (
         <TouchableOpacity key={s.id} style={[styles.card5D,{backgroundColor:T.card}]} onPress={()=>{ setSelectedService(s); nav("serviceDetail"); }}>
           <Image source={{uri:IMG.bureau}} style={styles.card5DImg}/>
           <View style={styles.card5DBody}>
@@ -1223,7 +1246,7 @@ export default function App(){
   }
 
   if(page==="serviceDetail" && selectedService){
-    const rating=avgRating(selectedService.bureau);
+    const rating=getRating(selectedService.proId);
     return (<Page title="Service" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
         <Text style={[styles.cardTitle5D,{color:T.text}]}>{selectedService.name}</Text>
@@ -1253,7 +1276,7 @@ export default function App(){
         </View>
         <View style={[styles.timeline5D,{backgroundColor:T.card}]}>{BOOKING_STEPS.map((s,i)=>{ const act=i<=selectedBooking.step; return (<View key={s} style={styles.timeRow5D}><View style={[styles.timeCircle5D,act&&styles.timeActive5D]}><Text>{act?"✓":"•"}</Text></View><Text style={[styles.timeTitle5D,act&&styles.timeActiveTitle5D]}>{s}</Text></View>);})}</View>
         {selectedBooking.step<2 && <TouchableOpacity style={styles.secondary5D} onPress={()=>cancelBooking(selectedBooking)}><Text style={styles.secondary5DT}>Annuler la réservation</Text></TouchableOpacity>}
-        {selectedBooking.step===2 && <TouchableOpacity style={styles.buy5D} onPress={()=>openReview(selectedBooking.service.bureau, selectedBooking.id)}><Text style={styles.buy5DT}>⭐ Laisser un avis</Text></TouchableOpacity>}
+        {selectedBooking.step===2 && <TouchableOpacity style={styles.buy5D} onPress={()=>openReview(selectedBooking.proId, undefined, selectedBooking.id)}><Text style={styles.buy5DT}>⭐ Laisser un avis</Text></TouchableOpacity>}
         <TouchableOpacity style={styles.secondary5D} onPress={()=>{ setSupportThread(selectedBooking.id); nav("support"); }}><Text style={styles.secondary5DT}>💬 Support / Signaler un problème</Text></TouchableOpacity>
       </>)}
       <ReviewModal visible={!!reviewModal} rating={reviewRating} setRating={setReviewRating} comment={reviewComment} setComment={setReviewComment} onCancel={()=>setReviewModal(null)} onSubmit={submitReview}/>
@@ -1263,7 +1286,7 @@ export default function App(){
   // ---- Bureau Pro ----
   if(page==="pro"){
     if(!hasRole("pro")) return <RoleGate T={T} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} info={ROLES_INFO.pro} onActivate={()=>nav("settings")} actionLabel="Activer dans les Paramètres"/>;
-    const my=services.filter(s=>s.proId===user.id); const rating=avgRating(user.bureau);
+    const my=services.filter(s=>s.proId===user.id); const rating=getRating(user.id);
     return (<Page title={`Bureau Pro - ${R.BLOQUE}j`} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <Banner color={BANNERS.pro.color} icon={BANNERS.pro.icon} style={styles.spaceHero5D} radius={22}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🧑‍💼 {user.bureau} {isVerified("pro")?"✅":""}</Text><Text style={styles.spaceSub5D}>{user.domaine} • {rating?`⭐ ${rating.avg}/5 (${rating.count} avis)`:"Pas encore d'avis"}</Text></View></Banner>
 
@@ -1310,7 +1333,7 @@ export default function App(){
         <View style={[styles.timeline5D,{backgroundColor:T.card}]}>{STEPS.map((s,i)=>{ const act=i<=selectedOrder.step; return (<View key={s} style={styles.timeRow5D}><View style={[styles.timeCircle5D,act&&styles.timeActive5D]}><Text>{act?"✓":"•"}</Text></View><Text style={[styles.timeTitle5D,act&&styles.timeActiveTitle5D]}>{s}</Text></View>);})}</View>
         {selectedOrder.step<4 && <Text style={[styles.settingsSub,{textAlign:"center",marginTop:8}]}>⏳ En attente du commerçant/livreur pour la prochaine étape</Text>}
         {selectedOrder.step===4 && selectedOrder.status!=="Confirmée" && <TouchableOpacity style={styles.buy5D} onPress={()=>confirmReception(selectedOrder)}><Text style={styles.buy5DT}>✅ Confirmer réception</Text></TouchableOpacity>}
-        {selectedOrder.status==="Confirmée" && <TouchableOpacity style={styles.buy5D} onPress={()=>openReview(selectedOrder.merchant, selectedOrder.id)}><Text style={styles.buy5DT}>⭐ Laisser un avis</Text></TouchableOpacity>}
+        {selectedOrder.status==="Confirmée" && <TouchableOpacity style={styles.buy5D} onPress={()=>openReview(selectedOrder.merchantId, selectedOrder.id, undefined)}><Text style={styles.buy5DT}>⭐ Laisser un avis</Text></TouchableOpacity>}
         <TouchableOpacity style={styles.secondary5D} onPress={()=>{ setSupportThread(selectedOrder.id); nav("support"); }}><Text style={styles.secondary5DT}>💬 Support / Signaler un problème</Text></TouchableOpacity>
       </>)}
       <ReviewModal visible={!!reviewModal} rating={reviewRating} setRating={setReviewRating} comment={reviewComment} setComment={setReviewComment} onCancel={()=>setReviewModal(null)} onSubmit={submitReview}/>
