@@ -36,6 +36,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { SafeAreaView, View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, StyleSheet, Alert, Modal, Image, ImageBackground, Switch, Share } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
+import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 // (notifications push : chargées uniquement à l'usage, voir registerPushToken plus bas -
 // évite un plantage au démarrage dans Expo Go, qui ne supporte plus cette fonctionnalité)
@@ -409,6 +410,21 @@ export default function App(){
   const [regName,setRegName]=useState(""); const [regPhone,setRegPhone]=useState(""); const [regCity,setRegCity]=useState("Yaoundé");
   const [regRole,setRegRole]=useState(null); const [regExtra,setRegExtra]=useState(""); const [regDomaine,setRegDomaine]=useState(PRO_DOMAINES[0]);
   const [regReferralCode,setRegReferralCode]=useState(""); // MERCA CERCLE : code du parrain (facultatif, à l'inscription)
+  const [referralAutoFilled,setReferralAutoFilled]=useState(false); // pour afficher "détecté automatiquement" à l'utilisateur
+
+  // Détecte automatiquement un code de parrainage copié (ex: la personne a
+  // copié le message d'invitation reçu par WhatsApp/SMS) - évite d'avoir à
+  // le taper à la main, donc moins d'erreurs de frappe.
+  useEffect(()=>{
+    if(user || otpStep!=="form" || authMode!=="register" || regReferralCode) return;
+    (async()=>{
+      try{
+        const text = await Clipboard.getStringAsync();
+        const match = text && text.match(/code\s+([A-Z0-9]{6})/i);
+        if(match){ setRegReferralCode(match[1].toUpperCase()); setReferralAutoFilled(true); }
+      }catch(e){ /* presse-papier indisponible - pas grave, saisie manuelle reste possible */ }
+    })();
+  },[user, otpStep, authMode]);
   // ---- Connexion réelle au serveur (OTP = code à usage unique envoyé par SMS) ----
   const [accessToken,setAccessToken]=useState(null);
   const [otpStep,setOtpStep]=useState("form"); // "form" = saisie infos, "code" = saisie du code reçu
@@ -969,7 +985,8 @@ export default function App(){
             <TextInput value={regName} onChangeText={setRegName} placeholder={t("name_placeholder")} style={styles.input5D}/>
             <TextInput value={regPhone} onChangeText={setRegPhone} placeholder={t("phone_placeholder")} keyboardType="phone-pad" style={styles.input5D}/>
             <TextInput value={regCity} onChangeText={setRegCity} placeholder={t("city_placeholder")} style={styles.input5D}/>
-            <TextInput value={regReferralCode} onChangeText={setRegReferralCode} placeholder={lang==="fr"?"Code de parrainage (facultatif)":"Referral code (optional)"} autoCapitalize="characters" style={styles.input5D}/>
+            <TextInput value={regReferralCode} onChangeText={(v)=>{ setRegReferralCode(v); setReferralAutoFilled(false); }} placeholder={lang==="fr"?"Code de parrainage (facultatif)":"Referral code (optional)"} autoCapitalize="characters" style={styles.input5D}/>
+            {referralAutoFilled && <Text style={{fontSize:11,color:"#00a651",marginTop:4,fontWeight:"700"}}>{lang==="fr"?"✅ Code détecté automatiquement":"✅ Code auto-detected"}</Text>}
           </View>
 
           <Text style={[styles.section5D,{color:T.text}]}>{t("how_use_title")}</Text>
