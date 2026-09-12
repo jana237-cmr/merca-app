@@ -74,9 +74,9 @@ async function apiRequestOtp(phone){
   if(!res.ok) throw new Error(data.message ? `Serveur (${res.status}): ${Array.isArray(data.message)?data.message.join(", "):data.message}` : `Erreur serveur (${res.status})`);
   return data;
 }
-async function apiVerifyOtp(phone, code){
+async function apiVerifyOtp(phone, code, referralCode){
   let res;
-  try{ res = await fetch(`${API_BASE}/auth/otp/verify`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ phone, code }) }); }
+  try{ res = await fetch(`${API_BASE}/auth/otp/verify`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ phone, code, referralCode: referralCode||undefined }) }); }
   catch(e){ throw new Error(`Réseau: ${e.message}`); }
   const data = await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(data.message ? (Array.isArray(data.message)?data.message.join(", "):data.message) : `Erreur serveur (${res.status})`);
@@ -96,6 +96,12 @@ async function apiAddRole(token, dto){
   const res = await fetch(`${API_BASE}/users/me/roles`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify(dto) });
   if(!res.ok) throw new Error("Impossible d'activer ce rôle");
   return res.json();
+}
+// ---- MERCA CERCLE (parrainage) ----
+async function apiMyCircle(token){
+  const res = await fetch(`${API_BASE}/users/me/circle`, { headers:{ Authorization:`Bearer ${token}` } });
+  if(!res.ok) throw new Error("Impossible de charger ton Cercle");
+  return res.json(); // { code, invitedCount, activeCount }
 }
 // ---- Catalogue produits réel (serveur) ----
 async function apiGetProducts(city){
@@ -402,6 +408,7 @@ export default function App(){
 
   const [regName,setRegName]=useState(""); const [regPhone,setRegPhone]=useState(""); const [regCity,setRegCity]=useState("Yaoundé");
   const [regRole,setRegRole]=useState(null); const [regExtra,setRegExtra]=useState(""); const [regDomaine,setRegDomaine]=useState(PRO_DOMAINES[0]);
+  const [regReferralCode,setRegReferralCode]=useState(""); // MERCA CERCLE : code du parrain (facultatif, à l'inscription)
   // ---- Connexion réelle au serveur (OTP = code à usage unique envoyé par SMS) ----
   const [accessToken,setAccessToken]=useState(null);
   const [otpStep,setOtpStep]=useState("form"); // "form" = saisie infos, "code" = saisie du code reçu
@@ -430,6 +437,14 @@ export default function App(){
   const [adminStats,setAdminStats]=useState(null);
   const [adminUsers,setAdminUsers]=useState([]);
   const refreshAdmin=async()=>{ if(!accessToken || !user?.isAdmin) return; try{ const [s,u]=await Promise.all([apiAdminStats(accessToken),apiAdminUsers(accessToken)]); setAdminStats(s); setAdminUsers(u); }catch(e){} };
+
+  // ---- MERCA CERCLE (parrainage) ----
+  const [circleData,setCircleData]=useState(null);
+  const refreshCircle=async()=>{ if(!accessToken) return; try{ const c=await apiMyCircle(accessToken); setCircleData(c); }catch(e){} };
+  const shareCircleCode=()=>{
+    if(!circleData) return;
+    Share.share({ message: `🎁 Rejoins-moi sur MERCA !\n\nUtilise mon code ${circleData.code} à l'inscription.\n\n📲 Télécharge l'app et commence à acheter, vendre ou livrer sur MERCA.` }).catch(()=>{});
+  };
   const adminToggleSuspend=async(u)=>{ try{ const updated=await apiAdminSuspend(accessToken,u.id); setAdminUsers(us=>us.map(x=>x.id===u.id?updated:x)); }catch(e){ Alert.alert("Erreur",e.message); } };
   const adminVerifyRole=async(u,role)=>{ try{ const updated=await apiAdminVerify(accessToken,u.id,role); setAdminUsers(us=>us.map(x=>x.id===u.id?updated:x)); }catch(e){ Alert.alert("Erreur",e.message); } };
 
@@ -508,6 +523,7 @@ export default function App(){
     if(page==="pro") { refreshServices(); refreshBookingsToFulfill(); }
     if(page==="home") refreshServices();
     if(page==="admin") refreshAdmin();
+    if(page==="circle") refreshCircle();
   },[page, accessToken]);
   const back=()=>{ if(hist.length===0){ setPage("home"); return; } setPage(hist[hist.length-1]); setHist(h=>h.slice(0,-1)); };
   const home=()=>{ setHist([]); setPage("home"); };
@@ -611,7 +627,7 @@ export default function App(){
     if(!otpCode.trim() || otpCode.trim().length!==6) return Alert.alert("Erreur","Entre le code à 6 chiffres reçu par SMS");
     setAuthError(""); setAuthLoading(true);
     try{
-      const { accessToken:token, user:serverUser } = await apiVerifyOtp(normalizePhone(regPhone), otpCode.trim());
+      const { accessToken:token, user:serverUser } = await apiVerifyOtp(normalizePhone(regPhone), otpCode.trim(), authMode==="register"?regReferralCode.trim():undefined);
       setAccessToken(token);
       SecureStore.setItemAsync("merca_access_token", token).catch(()=>{}); // stockage chiffré
       registerPushToken(token); // en arrière-plan, ne bloque rien
@@ -641,7 +657,7 @@ export default function App(){
       setUser({ id:updated.id, name:updated.name||regName.trim(), phone:updated.phone, city:updated.city||regCity, roles:updated.roles||["client"], verifiedRoles:updated.verifiedRoles||[], avatarUri:null, guest:false, createdAt:Date.now(), shopName:updated.shopName, vehicule:updated.vehicule, bureau:updated.bureau, domaine:updated.domaine, isAdmin:!!updated.isAdmin });
       setWallet(balance);
       setWalletHistory(h=> h.length?h:[{id:"h0",type:"Portefeuille (solde réel du serveur)",amount:balance,icon:"🧪",color:"#888"}]);
-      setRegName(""); setRegPhone(""); setRegExtra(""); setRegRole(null); setOtpCode(""); setOtpStep("form");
+      setRegName(""); setRegPhone(""); setRegExtra(""); setRegRole(null); setRegReferralCode(""); setOtpCode(""); setOtpStep("form");
     }catch(e){ setAuthError(e.message); }
     setAuthLoading(false);
   };
@@ -953,6 +969,7 @@ export default function App(){
             <TextInput value={regName} onChangeText={setRegName} placeholder={t("name_placeholder")} style={styles.input5D}/>
             <TextInput value={regPhone} onChangeText={setRegPhone} placeholder={t("phone_placeholder")} keyboardType="phone-pad" style={styles.input5D}/>
             <TextInput value={regCity} onChangeText={setRegCity} placeholder={t("city_placeholder")} style={styles.input5D}/>
+            <TextInput value={regReferralCode} onChangeText={setRegReferralCode} placeholder={lang==="fr"?"Code de parrainage (facultatif)":"Referral code (optional)"} autoCapitalize="characters" style={styles.input5D}/>
           </View>
 
           <Text style={[styles.section5D,{color:T.text}]}>{t("how_use_title")}</Text>
@@ -1045,6 +1062,7 @@ export default function App(){
           <TouchableOpacity style={styles.gridItem5D} onPress={()=>nav("client")}><Banner color={BANNERS.client.color} icon={BANNERS.client.icon} style={styles.gridImg5D} radius={18}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>👤 CLIENT</Text><Text style={styles.gridSub5D}>{user.guest?"Invité":`${points}pts`}</Text></View></Banner></TouchableOpacity>
           <TouchableOpacity style={styles.gridItem5D} onPress={()=>nav("espaces")}><Banner color={BANNERS.merchant.color} icon={BANNERS.merchant.icon} style={styles.gridImg5D} radius={18}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>🧰 ESPACE</Text><Text style={styles.gridSub5D}>Vendre / Livrer</Text></View></Banner></TouchableOpacity>
           <TouchableOpacity style={styles.gridItem5D} onPress={()=>user.guest?requireAccount("accéder à PERMUTA"):nav("permuta")}><Banner color={BANNERS.permuta.color} icon={BANNERS.permuta.icon} style={styles.gridImg5D} radius={18}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>🔄 PERMUTA {user.guest?"🔒":""}</Text><Text style={styles.gridSub5D}>Simulation test</Text></View></Banner></TouchableOpacity>
+          <TouchableOpacity style={styles.gridItem5D} onPress={()=>user.guest?requireAccount("accéder à MERCA CERCLE"):nav("circle")}><Banner color="#F5A623" icon="🎁" style={styles.gridImg5D} radius={18}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>🎁 CERCLE {user.guest?"🔒":""}</Text><Text style={styles.gridSub5D}>Parrainage</Text></View></Banner></TouchableOpacity>
           <TouchableOpacity style={styles.gridItem5D} onPress={()=>nav("settings")}><Banner color={BANNERS.settings.color} icon={BANNERS.settings.icon} style={styles.gridImg5D} radius={18}><View style={styles.gridOverlay5D}><Text style={styles.gridTitle5D}>⚙️ PARAMÈTRES</Text><Text style={styles.gridSub5D}>Compte, rôles, PIN</Text></View></Banner></TouchableOpacity>
         </View>
       </View>
@@ -1347,6 +1365,24 @@ export default function App(){
   if(page==="orders"){
     return (<Page title="Commandes" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <FlatList data={orders} keyExtractor={(o)=>o.id} scrollEnabled={false} renderItem={({item:o})=>(<TouchableOpacity style={[styles.card5D,{backgroundColor:T.card}]} onPress={()=>{ setSelectedOrder(o); nav("tracking"); }}><View style={{flexDirection:'row',gap:10}}><Image source={{uri:o.product.img}} style={styles.orderImg5D}/><View style={{flex:1}}><Text style={[styles.cardTitle5D,{color:T.text}]}>{o.product.name} • Code {o.codeLivraison}</Text><Text style={styles.fidelity5D}>Total {money(o.total)}</Text></View></View></TouchableOpacity>)}/>
+    </Page>);
+  }
+
+  // ================= MERCA CERCLE (parrainage) =================
+  if(page==="circle"){
+    if(user.guest) return <RoleGate T={T} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} info={{icon:"🎁",label:"MERCA CERCLE",color:"#F5A623",desc:"Le parrainage est réservé aux comptes inscrits"}} onActivate={()=>setUser(null)} actionLabel="S'inscrire"/>;
+    return (<Page title="🎁 MERCA CERCLE" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
+      <View style={[styles.card5DLarge,{backgroundColor:"#F5A623"}]}>
+        <Text style={{color:"#fff",fontWeight:"900",fontSize:14}}>Ton code personnel</Text>
+        <Text style={{color:"#fff",fontWeight:"900",fontSize:32,letterSpacing:4,marginTop:8}}>{circleData?.code||"..."}</Text>
+        <Text style={{color:"rgba(255,255,255,0.85)",fontSize:11,marginTop:8}}>Invite tes proches - quand ils font leur première vraie commande ou réservation confirmée, tu reçois {money(500)}.</Text>
+      </View>
+      <TouchableOpacity style={styles.buy5D} onPress={shareCircleCode}><Text style={styles.buy5DT}>📤 Partager mon code</Text></TouchableOpacity>
+      <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
+        <Text style={[styles.cardTitle5D,{color:T.text}]}>📊 Mon Cercle</Text>
+        <Text style={[styles.settingsLine,{color:T.text}]}>{circleData?.invitedCount||0} personne(s) invitée(s)</Text>
+        <Text style={styles.settingsSub}>{circleData?.activeCount||0} devenue(s) active(s) (première transaction confirmée)</Text>
+      </View>
     </Page>);
   }
 
