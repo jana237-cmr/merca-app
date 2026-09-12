@@ -103,6 +103,15 @@ async function apiGetProducts(city){
   if(!res.ok) throw new Error("Impossible de charger les produits du serveur");
   return res.json();
 }
+// Recherche intelligente : tolère les fautes de frappe et priorise les
+// commerçants les plus proches (élargit le rayon automatiquement si rien
+// n'est trouvé près de l'utilisateur). token optionnel (fonctionne aussi en invité).
+async function apiSmartSearch(query, token){
+  const params = new URLSearchParams({ q: query });
+  const res = await fetch(`${API_BASE}/products/search?${params.toString()}`, { headers: token?{ Authorization:`Bearer ${token}` }:{} });
+  if(!res.ok) throw new Error("Recherche indisponible");
+  return res.json(); // { results, radiusUsedKm }
+}
 async function apiCreateProduct(token, dto){
   const res = await fetch(`${API_BASE}/products`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify(dto) });
   const data = await res.json().catch(()=>({}));
@@ -477,6 +486,18 @@ export default function App(){
   },[ready, user, products, services, orders, bookings, wallet, points, orDate, walletHistory, walletPin, favorites, dark, lang, notifEnabled, reviews, messages, disputes]);
 
   useEffect(()=>{ const t=setTimeout(()=>setDebouncedSearch(search),300); return ()=>clearTimeout(t); },[search]);
+  // Recherche intelligente côté serveur (tolère les fautes de frappe, priorise
+  // la proximité) - si elle échoue ou ne trouve rien, on retombe sur la
+  // recherche locale simple pour ne jamais laisser l'utilisateur bloqué.
+  const [smartResults,setSmartResults]=useState(null);
+  useEffect(()=>{
+    if(debouncedSearch===''){ setSmartResults(null); return; }
+    let cancelled=false;
+    apiSmartSearch(debouncedSearch, accessToken).then(r=>{
+      if(!cancelled) setSmartResults(r.results.map(serverToLocalProduct));
+    }).catch(()=>{ if(!cancelled) setSmartResults(null); });
+    return ()=>{ cancelled=true; };
+  },[debouncedSearch, accessToken]);
 
   const nav=(n)=>{ if(n===page) return; setHist(h=>[...h,page]); setPage(n); };
   // Rafraîchit automatiquement la bonne liste de commandes/réservations selon l'écran ouvert
@@ -536,7 +557,11 @@ export default function App(){
   const confirm=(t,m,a)=>Alert.alert(t,m,[{text:"Annuler",style:"cancel"},{text:"Confirmer",style:"destructive",onPress:a}]);
   const requireAccount=(action)=> Alert.alert("Compte requis", `Crée un compte gratuit pour ${action} (SIMULATION TEST - inscription rapide).`, [{text:"Plus tard",style:"cancel"},{text:"S'inscrire",onPress:()=>setUser(null)}]);
 
-  const filteredExact=useMemo(()=>products.filter(p=>debouncedSearch!==''&&approx(debouncedSearch,p.name+" "+p.shop)),[products,debouncedSearch]);
+  const filteredExact=useMemo(()=>{
+    if(debouncedSearch==='') return [];
+    if(smartResults && smartResults.length>0) return smartResults;
+    return products.filter(p=>approx(debouncedSearch,p.name+" "+p.shop));
+  },[products,debouncedSearch,smartResults]);
   const filtered=useMemo(()=>products.filter(p=>(debouncedSearch===''||approx(debouncedSearch,p.name+" "+p.shop))&&(cat==="Tous"||p.cat===cat)&&p.ville===ville&&p.rayon<=rayon),[products,debouncedSearch,cat,ville,rayon]);
   const dispoServices=useMemo(()=>services.filter(s=>s.dispo),[services]);
 
