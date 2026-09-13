@@ -231,13 +231,15 @@ async function apiGetBookingsToFulfill(token){
 // ---- Administration MERCA (toi uniquement - le serveur vérifie aussi ton statut admin) ----
 async function apiAdminStats(token, adminPassword){
   const res = await fetch(`${API_BASE}/admin/stats`, { headers:{ Authorization:`Bearer ${token}`, "x-admin-password":adminPassword } });
-  if(!res.ok) throw new Error(res.status===403 ? "Mot de passe administrateur incorrect" : "Impossible de charger les statistiques");
-  return res.json();
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message ? (Array.isArray(data.message)?data.message.join(", "):data.message) : "Impossible de charger les statistiques");
+  return data;
 }
 async function apiAdminUsers(token, adminPassword){
   const res = await fetch(`${API_BASE}/admin/users`, { headers:{ Authorization:`Bearer ${token}`, "x-admin-password":adminPassword } });
-  if(!res.ok) throw new Error(res.status===403 ? "Mot de passe administrateur incorrect" : "Impossible de charger les utilisateurs");
-  return res.json();
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message ? (Array.isArray(data.message)?data.message.join(", "):data.message) : "Impossible de charger les utilisateurs");
+  return data;
 }
 async function apiAdminSuspend(token, adminPassword, id){
   const res = await fetch(`${API_BASE}/admin/users/${id}/suspend`, { method:"POST", headers:{ Authorization:`Bearer ${token}`, "x-admin-password":adminPassword } });
