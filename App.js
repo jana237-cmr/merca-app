@@ -229,25 +229,43 @@ async function apiGetBookingsToFulfill(token){
   return res.json();
 }
 // ---- Administration MERCA (toi uniquement - le serveur vérifie aussi ton statut admin) ----
-async function apiAdminStats(token){
-  const res = await fetch(`${API_BASE}/admin/stats`, { headers:{ Authorization:`Bearer ${token}` } });
-  if(!res.ok) throw new Error("Impossible de charger les statistiques");
+async function apiAdminStats(token, adminPassword){
+  const res = await fetch(`${API_BASE}/admin/stats`, { headers:{ Authorization:`Bearer ${token}`, "x-admin-password":adminPassword } });
+  if(!res.ok) throw new Error(res.status===403 ? "Mot de passe administrateur incorrect" : "Impossible de charger les statistiques");
   return res.json();
 }
-async function apiAdminUsers(token){
-  const res = await fetch(`${API_BASE}/admin/users`, { headers:{ Authorization:`Bearer ${token}` } });
-  if(!res.ok) throw new Error("Impossible de charger les utilisateurs");
+async function apiAdminUsers(token, adminPassword){
+  const res = await fetch(`${API_BASE}/admin/users`, { headers:{ Authorization:`Bearer ${token}`, "x-admin-password":adminPassword } });
+  if(!res.ok) throw new Error(res.status===403 ? "Mot de passe administrateur incorrect" : "Impossible de charger les utilisateurs");
   return res.json();
 }
-async function apiAdminSuspend(token, id){
-  const res = await fetch(`${API_BASE}/admin/users/${id}/suspend`, { method:"POST", headers:{ Authorization:`Bearer ${token}` } });
-  if(!res.ok) throw new Error("Impossible de suspendre ce compte");
+async function apiAdminSuspend(token, adminPassword, id){
+  const res = await fetch(`${API_BASE}/admin/users/${id}/suspend`, { method:"POST", headers:{ Authorization:`Bearer ${token}`, "x-admin-password":adminPassword } });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible de suspendre ce compte");
+  return data;
+}
+async function apiAdminVerify(token, adminPassword, id, role){
+  const res = await fetch(`${API_BASE}/admin/users/${id}/verify`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`, "x-admin-password":adminPassword}, body: JSON.stringify({ role }) });
+  if(!res.ok) throw new Error(res.status===403 ? "Mot de passe administrateur incorrect" : "Impossible de vérifier ce compte");
   return res.json();
 }
-async function apiAdminVerify(token, id, role){
-  const res = await fetch(`${API_BASE}/admin/users/${id}/verify`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify({ role }) });
-  if(!res.ok) throw new Error("Impossible de vérifier ce compte");
+async function apiAdminUserDetail(token, adminPassword, id){
+  const res = await fetch(`${API_BASE}/admin/users/${id}`, { headers:{ Authorization:`Bearer ${token}`, "x-admin-password":adminPassword } });
+  if(!res.ok) throw new Error("Impossible de charger le détail de ce compte");
   return res.json();
+}
+async function apiAdminToggleAdmin(token, adminPassword, id){
+  const res = await fetch(`${API_BASE}/admin/users/${id}/toggle-admin`, { method:"POST", headers:{ Authorization:`Bearer ${token}`, "x-admin-password":adminPassword } });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible de modifier les droits admin");
+  return data;
+}
+async function apiAdminWalletAdjust(token, adminPassword, id, amount){
+  const res = await fetch(`${API_BASE}/admin/users/${id}/wallet-adjust`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`, "x-admin-password":adminPassword}, body: JSON.stringify({ amount }) });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message || "Impossible d'ajuster ce portefeuille");
+  return data;
 }
 // ---- Avis réels (liés à une vraie commande/réservation confirmée) ----
 async function apiCreateReview(token, dto){
@@ -464,7 +482,21 @@ export default function App(){
   // ---- Administration MERCA (toi uniquement) ----
   const [adminStats,setAdminStats]=useState(null);
   const [adminUsers,setAdminUsers]=useState([]);
-  const refreshAdmin=async()=>{ if(!accessToken || !user?.isAdmin) return; try{ const [s,u]=await Promise.all([apiAdminStats(accessToken),apiAdminUsers(accessToken)]); setAdminStats(s); setAdminUsers(u); }catch(e){} };
+  // Jamais sauvegardé nulle part (ni AsyncStorage, ni espace chiffré) -
+  // redemandé à chaque fois que l'écran admin est ouvert, pour que l'accès à
+  // cette zone ne dépende pas uniquement d'un téléphone déverrouillé.
+  const [adminPasswordInput,setAdminPasswordInput]=useState("");
+  const [adminUnlocked,setAdminUnlocked]=useState(null); // le mot de passe une fois validé, utilisé pour les appels
+  const [adminError,setAdminError]=useState("");
+  const unlockAdmin=async()=>{
+    if(!adminPasswordInput.trim()) return;
+    setAdminError("");
+    try{
+      const [s,u]=await Promise.all([apiAdminStats(accessToken,adminPasswordInput.trim()),apiAdminUsers(accessToken,adminPasswordInput.trim())]);
+      setAdminStats(s); setAdminUsers(u); setAdminUnlocked(adminPasswordInput.trim()); setAdminPasswordInput("");
+    }catch(e){ setAdminError(e.message); }
+  };
+  const refreshAdmin=async()=>{ if(!accessToken || !user?.isAdmin || !adminUnlocked) return; try{ const [s,u]=await Promise.all([apiAdminStats(accessToken,adminUnlocked),apiAdminUsers(accessToken,adminUnlocked)]); setAdminStats(s); setAdminUsers(u); }catch(e){} };
 
   // ---- MERCA CERCLE (parrainage) ----
   const [circleData,setCircleData]=useState(null);
@@ -473,8 +505,21 @@ export default function App(){
     if(!circleData) return;
     Share.share({ message: `🎁 Rejoins-moi sur MERCA !\n\nUtilise mon code ${circleData.code} à l'inscription.\n\n📲 Télécharge l'app et commence à acheter, vendre ou livrer sur MERCA.` }).catch(()=>{});
   };
-  const adminToggleSuspend=async(u)=>{ try{ const updated=await apiAdminSuspend(accessToken,u.id); setAdminUsers(us=>us.map(x=>x.id===u.id?updated:x)); }catch(e){ Alert.alert("Erreur",e.message); } };
-  const adminVerifyRole=async(u,role)=>{ try{ const updated=await apiAdminVerify(accessToken,u.id,role); setAdminUsers(us=>us.map(x=>x.id===u.id?updated:x)); }catch(e){ Alert.alert("Erreur",e.message); } };
+  const adminToggleSuspend=async(u)=>{ try{ const updated=await apiAdminSuspend(accessToken,adminUnlocked,u.id); setAdminUsers(us=>us.map(x=>x.id===u.id?updated:x)); }catch(e){ Alert.alert("Erreur",e.message); } };
+  const adminVerifyRole=async(u,role)=>{ try{ const updated=await apiAdminVerify(accessToken,adminUnlocked,u.id,role); setAdminUsers(us=>us.map(x=>x.id===u.id?updated:x)); }catch(e){ Alert.alert("Erreur",e.message); } };
+  const adminToggleAdminRights=async(u)=>{ try{ const updated=await apiAdminToggleAdmin(accessToken,adminUnlocked,u.id); setAdminUsers(us=>us.map(x=>x.id===u.id?updated:x)); }catch(e){ Alert.alert("Erreur",e.message); } };
+  const [adminDetail,setAdminDetail]=useState(null); // détail complet du compte sélectionné
+  const adminViewDetail=async(u)=>{ try{ const d=await apiAdminUserDetail(accessToken,adminUnlocked,u.id); setAdminDetail(d); }catch(e){ Alert.alert("Erreur",e.message); } };
+  const [showWalletAdjust,setShowWalletAdjust]=useState(null); const [walletAdjustAmount,setWalletAdjustAmount]=useState("");
+  const submitWalletAdjust=async()=>{
+    const amount=parseFloat(walletAdjustAmount);
+    if(isNaN(amount) || amount===0) return Alert.alert("Erreur","Montant invalide (positif pour créditer, négatif pour débiter)");
+    try{
+      await apiAdminWalletAdjust(accessToken,adminUnlocked,showWalletAdjust.id,amount);
+      setShowWalletAdjust(null); setWalletAdjustAmount("");
+      Alert.alert("Fait","Portefeuille ajusté");
+    }catch(e){ Alert.alert("Erreur",e.message); }
+  };
 
   // ---- Chargement / sauvegarde ----
   useEffect(()=>{ apiWakeUp(); },[]); // réveille le serveur dès l'ouverture de l'app
@@ -1429,6 +1474,19 @@ export default function App(){
   // ================= ADMINISTRATION (toi uniquement) =================
   if(page==="admin"){
     if(!user.isAdmin) return <RoleGate T={T} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} info={{icon:"🛡️",label:"Administration",color:"#111",desc:"Accès réservé"}} onActivate={home} actionLabel="Retour à l'accueil"/>;
+
+    if(!adminUnlocked){
+      return (<Page title="🛡️ Administration MERCA" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
+        <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
+          <Text style={[styles.cardTitle5D,{color:T.text}]}>🔒 Mot de passe administrateur</Text>
+          <Text style={styles.settingsSub}>Une deuxième protection, séparée de ton compte - redemandée à chaque ouverture.</Text>
+          <TextInput value={adminPasswordInput} onChangeText={setAdminPasswordInput} placeholder="Mot de passe" secureTextEntry style={styles.input5D}/>
+          {!!adminError && <Text style={{color:"#e74c3c",marginTop:8}}>{adminError}</Text>}
+          <TouchableOpacity style={styles.buy5D} onPress={unlockAdmin}><Text style={styles.buy5DT}>Déverrouiller</Text></TouchableOpacity>
+        </View>
+      </Page>);
+    }
+
     return (<Page title="🛡️ Administration MERCA" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <TouchableOpacity style={styles.secondary5D} onPress={refreshAdmin}><Text style={styles.secondary5DT}>🔄 Rafraîchir</Text></TouchableOpacity>
       {adminStats && (
@@ -1447,13 +1505,36 @@ export default function App(){
           <Text style={[styles.myProdName5D,{color:T.text}]}>{u.name||"(sans nom)"} {u.isAdmin?"🛡️":""} {u.isSuspended?"⛔":""}</Text>
           <Text style={styles.myProdPrice5D}>{u.phone} • {u.city||"?"} • {(u.roles||[]).join(", ")}</Text>
           <View style={{flexDirection:"row",flexWrap:"wrap",gap:6,marginTop:8}}>
-            <TouchableOpacity onPress={()=>adminToggleSuspend(u)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>{u.isSuspended?"✅ Réactiver":"⛔ Suspendre"}</Text></TouchableOpacity>
+            <TouchableOpacity onPress={()=>adminViewDetail(u)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>🔍 Détail</Text></TouchableOpacity>
+            <TouchableOpacity onPress={()=>{ setShowWalletAdjust(u); setWalletAdjustAmount(""); }} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>💰 Ajuster wallet</Text></TouchableOpacity>
+            {u.id!==user.id && <TouchableOpacity onPress={()=>adminToggleSuspend(u)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>{u.isSuspended?"✅ Réactiver":"⛔ Suspendre"}</Text></TouchableOpacity>}
+            {u.id!==user.id && <TouchableOpacity onPress={()=>adminToggleAdminRights(u)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>{u.isAdmin?"🛡️ Retirer admin":"🛡️ Rendre admin"}</Text></TouchableOpacity>}
             {(u.roles||[]).filter(r=>r!=="client" && !(u.verifiedRoles||[]).includes(r)).map(r=>(
               <TouchableOpacity key={r} onPress={()=>adminVerifyRole(u,r)} style={styles.editBtn5D}><Text style={styles.editBtn5DT}>✅ Vérifier {r}</Text></TouchableOpacity>
             ))}
           </View>
         </View>
       ))}
+
+      <Modal visible={!!adminDetail} transparent animationType="slide"><View style={styles.modalBg5D}><View style={styles.modal5D}>
+        {adminDetail && (<>
+          <Text style={styles.modalTitle5D}>🔍 {adminDetail.user.name||"(sans nom)"}</Text>
+          <Text style={styles.settingsSub}>{adminDetail.user.phone} • {adminDetail.user.city||"?"}</Text>
+          <Text style={[styles.settingsLine,{color:"#111",marginTop:8}]}>Portefeuille : {adminDetail.walletBalance!=null?money(adminDetail.walletBalance):"introuvable"}</Text>
+          <Text style={styles.settingsSub}>Achats: {adminDetail.boughtOrders} • Ventes (produits): {adminDetail.soldOrders} • Livraisons: {adminDetail.deliveries}</Text>
+          <Text style={styles.settingsSub}>Produits publiés: {adminDetail.myProducts} • Réservations (client): {adminDetail.myBookingsAsClient} • Réservations (pro): {adminDetail.myBookingsAsPro}</Text>
+          <Text style={styles.settingsSub}>Rôles: {(adminDetail.user.roles||[]).join(", ")} • Vérifiés: {(adminDetail.user.verifiedRoles||[]).join(", ")||"aucun"}</Text>
+          <TouchableOpacity style={styles.secondary5D} onPress={()=>setAdminDetail(null)}><Text>Fermer</Text></TouchableOpacity>
+        </>)}
+      </View></View></Modal>
+
+      <Modal visible={!!showWalletAdjust} transparent animationType="slide"><View style={styles.modalBg5D}><View style={styles.modal5D}>
+        <Text style={styles.modalTitle5D}>💰 Ajuster le portefeuille de {showWalletAdjust?.name}</Text>
+        <Text style={styles.settingsSub}>Montant positif = créditer, négatif = débiter (ex: -1000)</Text>
+        <TextInput value={walletAdjustAmount} onChangeText={setWalletAdjustAmount} placeholder="Montant (FCFA)" keyboardType="numbers-and-punctuation" style={styles.input5D}/>
+        <TouchableOpacity style={styles.buy5D} onPress={submitWalletAdjust}><Text style={styles.buy5DT}>Valider</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.secondary5D} onPress={()=>setShowWalletAdjust(null)}><Text>Annuler</Text></TouchableOpacity>
+      </View></View></Modal>
     </Page>);
   }
 
