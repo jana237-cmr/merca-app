@@ -386,7 +386,184 @@ const I18N = {
     code_placeholder:"6-digit code", verifying:"Verifying...", validate_btn:"Confirm", welcome_pts:"welcome pts", edit_info_link:"← Edit my information",
     lang_label:"Language",
   },
+  es: {
+    welcome_title:"Bienvenido a MERCA", welcome_sub:"SIMULACIÓN DE PRUEBA - aún no se envía SMS real",
+    guest_btn:"👀 Continuar sin cuenta (acceso limitado)",
+    guest_note:"Sin cuenta: puedes ver el catálogo con búsqueda exacta, pero sin puntos de bienvenida, sin compras, sin acceso a PERMUTA ni a las reservas. Regístrate para desbloquear todo.",
+    create_account_title:"Crear una cuenta completa", name_placeholder:"Nombre completo", phone_placeholder:"Número de teléfono", city_placeholder:"Ciudad",
+    how_use_title:"¿Cómo quieres usar MERCA?", client_only_label:"Solo cliente", client_only_desc:"Comprar, ganar puntos",
+    details_title:"Detalles", receive_code_btn:"Recibir mi código por SMS", sending_code:"Enviando código... (hasta 1 min la primera vez, el servidor se está despertando)",
+    code_sent_title:"Código enviado a", code_sim_note:"⚠️ SIMULACIÓN DE PRUEBA: aún no se envía ningún SMS real. El código de abajo se rellenó automáticamente para probar.",
+    code_placeholder:"Código de 6 dígitos", verifying:"Verificando...", validate_btn:"Confirmar", welcome_pts:"pts de bienvenida", edit_info_link:"← Editar mi información",
+    lang_label:"Idioma",
+  },
+  pt: {
+    welcome_title:"Bem-vindo ao MERCA", welcome_sub:"SIMULAÇÃO DE TESTE - nenhum SMS real enviado ainda",
+    guest_btn:"👀 Continuar sem conta (acesso limitado)",
+    guest_note:"Sem conta: podes ver o catálogo com pesquisa exata, mas sem pontos de boas-vindas, sem compras, sem acesso ao PERMUTA nem às reservas. Regista-te para desbloquear tudo.",
+    create_account_title:"Criar uma conta completa", name_placeholder:"Nome completo", phone_placeholder:"Número de telefone", city_placeholder:"Cidade",
+    how_use_title:"Como queres usar o MERCA?", client_only_label:"Apenas cliente", client_only_desc:"Comprar, ganhar pontos",
+    details_title:"Detalhes", receive_code_btn:"Receber o meu código por SMS", sending_code:"A enviar o código... (até 1 min na primeira vez, o servidor está a acordar)",
+    code_sent_title:"Código enviado para", code_sim_note:"⚠️ SIMULAÇÃO DE TESTE: nenhum SMS real enviado ainda. O código abaixo foi preenchido automaticamente para teste.",
+    code_placeholder:"Código de 6 dígitos", verifying:"A verificar...", validate_btn:"Confirmar", welcome_pts:"pts de boas-vindas", edit_info_link:"← Editar as minhas informações",
+    lang_label:"Idioma",
+  },
+  ar: {
+    welcome_title:"مرحبًا بك في MERCA", welcome_sub:"محاكاة اختبار - لم يتم إرسال رسالة SMS حقيقية بعد",
+    guest_btn:"👀 المتابعة بدون حساب (وصول محدود)",
+    guest_note:"بدون حساب: يمكنك تصفح الكتالوج بالبحث الدقيق فقط، دون نقاط ترحيبية أو شراء أو الوصول إلى PERMUTA أو الحجوزات. سجّل لفتح كل شيء.",
+    create_account_title:"إنشاء حساب كامل", name_placeholder:"الاسم الكامل", phone_placeholder:"رقم الهاتف", city_placeholder:"المدينة",
+    how_use_title:"كيف تريد استخدام MERCA؟", client_only_label:"عميل فقط", client_only_desc:"الشراء وكسب النقاط",
+    details_title:"التفاصيل", receive_code_btn:"استلام رمزي عبر SMS", sending_code:"جارٍ إرسال الرمز... (حتى دقيقة واحدة في المرة الأولى، الخادم يستيقظ)",
+    code_sent_title:"تم إرسال الرمز إلى", code_sim_note:"⚠️ محاكاة اختبار: لم يتم إرسال أي رسالة SMS حقيقية بعد. تم ملء الرمز أدناه تلقائيًا للاختبار.",
+    code_placeholder:"رمز مكوّن من 6 أرقام", verifying:"جارٍ التحقق...", validate_btn:"تأكيد", welcome_pts:"نقاط ترحيبية", edit_info_link:"← تعديل معلوماتي",
+    lang_label:"اللغة",
+  },
+  zh: {
+    welcome_title:"欢迎使用 MERCA", welcome_sub:"测试模拟 - 尚未发送真实短信",
+    guest_btn:"👀 不注册继续使用（访问受限）",
+    guest_note:"无账号：你可以浏览目录并使用精确搜索，但没有欢迎积分、无法购买、无法使用PERMUTA或预约功能。注册以解锁全部功能。",
+    create_account_title:"创建完整账号", name_placeholder:"全名", phone_placeholder:"电话号码", city_placeholder:"城市",
+    how_use_title:"你想如何使用MERCA？", client_only_label:"仅作为客户", client_only_desc:"购买商品，赚取积分",
+    details_title:"详情", receive_code_btn:"通过短信接收验证码", sending_code:"正在发送验证码...（首次可能需要长达1分钟，服务器正在启动）",
+    code_sent_title:"验证码已发送至", code_sim_note:"⚠️ 测试模拟：尚未发送真实短信。以下验证码已自动填写以供测试。",
+    code_placeholder:"6位数验证码", verifying:"正在验证...", validate_btn:"确认", welcome_pts:"欢迎积分", edit_info_link:"← 编辑我的信息",
+    lang_label:"语言",
+  },
+  de: {
+    welcome_title:"Willkommen bei MERCA", welcome_sub:"TESTSIMULATION - noch keine echte SMS gesendet",
+    guest_btn:"👀 Ohne Konto fortfahren (eingeschränkter Zugriff)",
+    guest_note:"Ohne Konto: Du kannst den Katalog mit exakter Suche durchsuchen, aber keine Willkommenspunkte, keine Käufe, kein Zugriff auf PERMUTA oder Buchungen. Registriere dich, um alles freizuschalten.",
+    create_account_title:"Vollständiges Konto erstellen", name_placeholder:"Vollständiger Name", phone_placeholder:"Telefonnummer", city_placeholder:"Stadt",
+    how_use_title:"Wie möchtest du MERCA nutzen?", client_only_label:"Nur Kunde", client_only_desc:"Kaufen, Punkte sammeln",
+    details_title:"Details", receive_code_btn:"Code per SMS erhalten", sending_code:"Code wird gesendet... (beim ersten Mal bis zu 1 Min., der Server wacht auf)",
+    code_sent_title:"Code gesendet an", code_sim_note:"⚠️ TESTSIMULATION: Es wurde noch keine echte SMS gesendet. Der Code unten wurde automatisch zum Testen eingetragen.",
+    code_placeholder:"6-stelliger Code", verifying:"Wird überprüft...", validate_btn:"Bestätigen", welcome_pts:"Willkommenspunkte", edit_info_link:"← Meine Informationen bearbeiten",
+    lang_label:"Sprache",
+  },
+  it: {
+    welcome_title:"Benvenuto su MERCA", welcome_sub:"SIMULAZIONE DI TEST - nessun SMS reale ancora inviato",
+    guest_btn:"👀 Continua senza account (accesso limitato)",
+    guest_note:"Senza account: puoi sfogliare il catalogo con ricerca esatta, ma senza punti di benvenuto, acquisti, accesso a PERMUTA o prenotazioni. Registrati per sbloccare tutto.",
+    create_account_title:"Crea un account completo", name_placeholder:"Nome completo", phone_placeholder:"Numero di telefono", city_placeholder:"Città",
+    how_use_title:"Come vuoi usare MERCA?", client_only_label:"Solo cliente", client_only_desc:"Acquistare, guadagnare punti",
+    details_title:"Dettagli", receive_code_btn:"Ricevi il mio codice via SMS", sending_code:"Invio del codice... (fino a 1 min la prima volta, il server si sta riattivando)",
+    code_sent_title:"Codice inviato a", code_sim_note:"⚠️ SIMULAZIONE DI TEST: nessun SMS reale ancora inviato. Il codice qui sotto è stato inserito automaticamente per il test.",
+    code_placeholder:"Codice a 6 cifre", verifying:"Verifica in corso...", validate_btn:"Conferma", welcome_pts:"punti di benvenuto", edit_info_link:"← Modifica le mie informazioni",
+    lang_label:"Lingua",
+  },
+  tr: {
+    welcome_title:"MERCA'ya hoş geldiniz", welcome_sub:"TEST SİMÜLASYONU - henüz gerçek SMS gönderilmedi",
+    guest_btn:"👀 Hesapsız devam et (sınırlı erişim)",
+    guest_note:"Hesap olmadan: kataloğu tam arama ile görebilirsin, ancak hoş geldin puanı, satın alma, PERMUTA veya rezervasyon erişimi yoktur. Her şeyin kilidini açmak için kaydol.",
+    create_account_title:"Tam hesap oluştur", name_placeholder:"Ad soyad", phone_placeholder:"Telefon numarası", city_placeholder:"Şehir",
+    how_use_title:"MERCA'yı nasıl kullanmak istersin?", client_only_label:"Sadece müşteri", client_only_desc:"Satın al, puan kazan",
+    details_title:"Ayrıntılar", receive_code_btn:"Kodumu SMS ile al", sending_code:"Kod gönderiliyor... (ilk seferde 1 dakikaya kadar sürebilir, sunucu uyanıyor)",
+    code_sent_title:"Kod gönderildi:", code_sim_note:"⚠️ TEST SİMÜLASYONU: henüz gerçek SMS gönderilmedi. Aşağıdaki kod test için otomatik dolduruldu.",
+    code_placeholder:"6 haneli kod", verifying:"Doğrulanıyor...", validate_btn:"Onayla", welcome_pts:"hoş geldin puanı", edit_info_link:"← Bilgilerimi düzenle",
+    lang_label:"Dil",
+  },
+  ru: {
+    welcome_title:"Добро пожаловать в MERCA", welcome_sub:"ТЕСТОВАЯ СИМУЛЯЦИЯ - настоящее SMS пока не отправлено",
+    guest_btn:"👀 Продолжить без аккаунта (ограниченный доступ)",
+    guest_note:"Без аккаунта: вы можете просматривать каталог с точным поиском, но без приветственных баллов, покупок, доступа к PERMUTA или бронированиям. Зарегистрируйтесь, чтобы открыть всё.",
+    create_account_title:"Создать полный аккаунт", name_placeholder:"Полное имя", phone_placeholder:"Номер телефона", city_placeholder:"Город",
+    how_use_title:"Как вы хотите использовать MERCA?", client_only_label:"Только клиент", client_only_desc:"Покупать, зарабатывать баллы",
+    details_title:"Детали", receive_code_btn:"Получить код по SMS", sending_code:"Отправка кода... (до 1 мин в первый раз, сервер просыпается)",
+    code_sent_title:"Код отправлен на", code_sim_note:"⚠️ ТЕСТОВАЯ СИМУЛЯЦИЯ: настоящее SMS пока не отправлено. Код ниже заполнен автоматически для теста.",
+    code_placeholder:"6-значный код", verifying:"Проверка...", validate_btn:"Подтвердить", welcome_pts:"приветственных баллов", edit_info_link:"← Изменить мои данные",
+    lang_label:"Язык",
+  },
+  hi: {
+    welcome_title:"MERCA में आपका स्वागत है", welcome_sub:"परीक्षण सिमुलेशन - अभी तक कोई वास्तविक SMS नहीं भेजा गया",
+    guest_btn:"👀 बिना खाते के जारी रखें (सीमित पहुंच)",
+    guest_note:"बिना खाते के: आप सटीक खोज के साथ कैटलॉग देख सकते हैं, लेकिन स्वागत अंक, खरीदारी, PERMUTA या बुकिंग तक पहुंच नहीं मिलेगी। सब कुछ अनलॉक करने के लिए साइन अप करें।",
+    create_account_title:"पूरा खाता बनाएं", name_placeholder:"पूरा नाम", phone_placeholder:"फ़ोन नंबर", city_placeholder:"शहर",
+    how_use_title:"आप MERCA का उपयोग कैसे करना चाहते हैं?", client_only_label:"केवल ग्राहक", client_only_desc:"खरीदें, अंक कमाएं",
+    details_title:"विवरण", receive_code_btn:"SMS से अपना कोड प्राप्त करें", sending_code:"कोड भेजा जा रहा है... (पहली बार 1 मिनट तक लग सकता है, सर्वर जाग रहा है)",
+    code_sent_title:"कोड भेजा गया", code_sim_note:"⚠️ परीक्षण सिमुलेशन: अभी तक कोई वास्तविक SMS नहीं भेजा गया। नीचे दिया गया कोड परीक्षण के लिए स्वतः भर दिया गया है।",
+    code_placeholder:"6 अंकों का कोड", verifying:"सत्यापन हो रहा है...", validate_btn:"पुष्टि करें", welcome_pts:"स्वागत अंक", edit_info_link:"← मेरी जानकारी संपादित करें",
+    lang_label:"भाषा",
+  },
+  ja: {
+    welcome_title:"MERCAへようこそ", welcome_sub:"テストシミュレーション - 実際のSMSはまだ送信されていません",
+    guest_btn:"👀 アカウントなしで続ける（アクセス制限あり）",
+    guest_note:"アカウントなしの場合：完全一致検索でカタログを閲覧できますが、ウェルカムポイント、購入、PERMUTAや予約へのアクセスはできません。すべてを解除するには登録してください。",
+    create_account_title:"完全なアカウントを作成", name_placeholder:"氏名", phone_placeholder:"電話番号", city_placeholder:"都市",
+    how_use_title:"MERCAをどのように使いたいですか？", client_only_label:"顧客のみ", client_only_desc:"購入してポイントを獲得",
+    details_title:"詳細", receive_code_btn:"SMSでコードを受け取る", sending_code:"コードを送信中...（初回は最大1分、サーバーが起動中です）",
+    code_sent_title:"コード送信先", code_sim_note:"⚠️ テストシミュレーション：実際のSMSはまだ送信されていません。以下のコードはテスト用に自動入力されています。",
+    code_placeholder:"6桁のコード", verifying:"確認中...", validate_btn:"確定", welcome_pts:"ウェルカムポイント", edit_info_link:"← 情報を編集",
+    lang_label:"言語",
+  },
+  ko: {
+    welcome_title:"MERCA에 오신 것을 환영합니다", welcome_sub:"테스트 시뮬레이션 - 아직 실제 SMS가 발송되지 않았습니다",
+    guest_btn:"👀 계정 없이 계속하기 (제한된 접근)",
+    guest_note:"계정이 없으면: 정확한 검색으로 카탈로그를 볼 수 있지만, 웰컴 포인트, 구매, PERMUTA 또는 예약 접근은 불가능합니다. 모든 기능을 잠금 해제하려면 가입하세요.",
+    create_account_title:"완전한 계정 만들기", name_placeholder:"전체 이름", phone_placeholder:"전화번호", city_placeholder:"도시",
+    how_use_title:"MERCA를 어떻게 사용하고 싶으신가요?", client_only_label:"고객으로만", client_only_desc:"구매하고 포인트 적립",
+    details_title:"세부 정보", receive_code_btn:"SMS로 코드 받기", sending_code:"코드 전송 중... (처음에는 최대 1분, 서버가 깨어나는 중)",
+    code_sent_title:"코드 전송됨:", code_sim_note:"⚠️ 테스트 시뮬레이션: 아직 실제 SMS가 발송되지 않았습니다. 아래 코드는 테스트를 위해 자동으로 입력되었습니다.",
+    code_placeholder:"6자리 코드", verifying:"확인 중...", validate_btn:"확인", welcome_pts:"웰컴 포인트", edit_info_link:"← 내 정보 수정",
+    lang_label:"언어",
+  },
+  sw: {
+    welcome_title:"Karibu MERCA", welcome_sub:"UIGAJI WA JARIBIO - hakuna SMS halisi iliyotumwa bado",
+    guest_btn:"👀 Endelea bila akaunti (ufikiaji mdogo)",
+    guest_note:"Bila akaunti: unaweza kuvinjari orodha kwa utafutaji sahihi, lakini bila pointi za karibu, ununuzi, ufikiaji wa PERMUTA au uhifadhi. Jisajili ili kufungua kila kitu.",
+    create_account_title:"Unda akaunti kamili", name_placeholder:"Jina kamili", phone_placeholder:"Nambari ya simu", city_placeholder:"Jiji",
+    how_use_title:"Unataka kutumiaje MERCA?", client_only_label:"Mteja tu", client_only_desc:"Nunua, pata pointi",
+    details_title:"Maelezo", receive_code_btn:"Pokea msimbo wangu kwa SMS", sending_code:"Inatuma msimbo... (hadi dakika 1 mara ya kwanza, seva inaamka)",
+    code_sent_title:"Msimbo umetumwa kwa", code_sim_note:"⚠️ UIGAJI WA JARIBIO: hakuna SMS halisi iliyotumwa bado. Msimbo hapa chini umejazwa kiotomatiki kwa ajili ya jaribio.",
+    code_placeholder:"Msimbo wa tarakimu 6", verifying:"Inathibitisha...", validate_btn:"Thibitisha", welcome_pts:"pointi za karibu", edit_info_link:"← Hariri taarifa zangu",
+    lang_label:"Lugha",
+  },
+  ha: {
+    welcome_title:"Barka da zuwa MERCA", welcome_sub:"KWAIKWAYON GWAJI - ba a aika sako na gaskiya ba tukuna",
+    guest_btn:"👀 Cigaba ba tare da asusu ba (iyakacin shiga)",
+    guest_note:"Ba tare da asusu ba: za ka iya duba jerin kayayyaki da bincike na daidai, amma babu maki na maraba, siye, ko damar zuwa PERMUTA ko yin ajiyar wuri. Yi rajista don buɗe komai.",
+    create_account_title:"Ƙirƙiri cikakken asusu", name_placeholder:"Cikakken suna", phone_placeholder:"Lambar waya", city_placeholder:"Gari",
+    how_use_title:"Yaya kake son amfani da MERCA?", client_only_label:"Abokin ciniki kawai", client_only_desc:"Saya, samu maki",
+    details_title:"Bayanai", receive_code_btn:"Karɓi lambar sirri ta SMS", sending_code:"Ana aika lambar... (har zuwa minti 1 a karo na farko, uwar garke tana farkawa)",
+    code_sent_title:"An aika lambar zuwa", code_sim_note:"⚠️ KWAIKWAYON GWAJI: ba a aika sako na gaskiya ba tukuna. An cika lambar da ke ƙasa ta atomatik don gwaji.",
+    code_placeholder:"Lambar lambobi 6", verifying:"Ana tabbatarwa...", validate_btn:"Tabbatar", welcome_pts:"maki na maraba", edit_info_link:"← Gyara bayanaina",
+    lang_label:"Harshe",
+  },
+  ff: {
+    welcome_title:"Bisimillah e MERCA", welcome_sub:"KWAAKUNKUN TESTINGO - SMS goonga alaa jaltugo",
+    guest_btn:"👀 Jokku ko alaa konte (jokkondiral seeɗa)",
+    guest_note:"Ko alaa konte : a waawi ƴeewde catalog nden e njiilaw feccere, kono maki weltaare alaa, njeeygu alaa, jokkondiral e PERMUTA walla reservation alaa. Winndito ngam udditde fof.",
+    create_account_title:"Sos konte timmunde", name_placeholder:"Innde timmunde", phone_placeholder:"Limngal telefon", city_placeholder:"Saare",
+    how_use_title:"No njiɗɗaa huutoraade MERCA?", client_only_label:"Kiliyaan tan", client_only_desc:"Soodde, heɓde maki",
+    details_title:"Ɓataake keewɗo", receive_code_btn:"Jaɓɓo kod am to SMS", sending_code:"Ena nulaa kod... (haa 1 minit sahaa arana, serwer ena finndoo)",
+    code_sent_title:"Kod nulanaama to", code_sim_note:"⚠️ KWAAKUNKUN TESTINGO: SMS goonga alaa jaltugo. Kod ley ɗo heewnii ko-toon ngam test.",
+    code_placeholder:"Kod mbatuuji 6", verifying:"Ena seedee...", validate_btn:"Tabtin", welcome_pts:"maki weltaare", edit_info_link:"← Baylu kumpital am",
+    lang_label:"Ɗemngal",
+  },
 };
+
+// Métadonnées des langues pour le sélecteur (drapeau + nom affiché) - garde le
+// même ordre que dans I18N. Les 2 premières sont les langues officielles du
+// Cameroun ; les 15 suivantes sont les langues étrangères ajoutées pour les
+// visiteurs internationaux pendant leur séjour au Cameroun.
+const LANGUAGES = [
+  { code:"fr", flag:"🇫🇷", label:"Français" },
+  { code:"en", flag:"🇬🇧", label:"English" },
+  { code:"es", flag:"🇪🇸", label:"Español" },
+  { code:"pt", flag:"🇵🇹", label:"Português" },
+  { code:"ar", flag:"🇸🇦", label:"العربية" },
+  { code:"zh", flag:"🇨🇳", label:"中文" },
+  { code:"de", flag:"🇩🇪", label:"Deutsch" },
+  { code:"it", flag:"🇮🇹", label:"Italiano" },
+  { code:"tr", flag:"🇹🇷", label:"Türkçe" },
+  { code:"ru", flag:"🇷🇺", label:"Русский" },
+  { code:"hi", flag:"🇮🇳", label:"हिन्दी" },
+  { code:"ja", flag:"🇯🇵", label:"日本語" },
+  { code:"ko", flag:"🇰🇷", label:"한국어" },
+  { code:"sw", flag:"🌍", label:"Kiswahili" },
+  { code:"ha", flag:"🌍", label:"Hausa" },
+  { code:"ff", flag:"🌍", label:"Fulfulde" },
+];
 
 const INITIAL_PRODUCTS = [
   {id:"p1",name:"iPhone X 64Go",price:95000,cat:"Téléphones",shop:"Merca Mobile",rating:4.7,stock:5,desc:"Bon état 88% - Yaoundé Bastos",ville:"Yaoundé",rayon:0.5,last:0,img:IMG.iphone},
@@ -488,6 +665,7 @@ export default function App(){
   // ---- Multi-comptes ----
   const [savedAccounts,setSavedAccounts]=useState([]); // liste des comptes gardés sur ce téléphone
   const [showAccountSwitcher,setShowAccountSwitcher]=useState(false);
+  const [showLangPicker,setShowLangPicker]=useState(false);
   const [otpCode,setOtpCode]=useState("");
   const [authLoading,setAuthLoading]=useState(false);
   const [authError,setAuthError]=useState("");
@@ -1075,10 +1253,22 @@ export default function App(){
       <SafeAreaView style={[styles.container,{backgroundColor:T.bg}]}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={{flexDirection:"row",justifyContent:"flex-end",marginBottom:8}}>
-            <TouchableOpacity onPress={()=>setLang(l=>l==="fr"?"en":"fr")} style={{backgroundColor:T.card,borderRadius:20,paddingHorizontal:14,paddingVertical:6}}>
-              <Text style={{color:T.text,fontWeight:"700"}}>{lang==="fr"?"🇫🇷 FR":"🇬🇧 EN"}</Text>
+            <TouchableOpacity onPress={()=>setShowLangPicker(true)} style={{backgroundColor:T.card,borderRadius:20,paddingHorizontal:14,paddingVertical:6}}>
+              <Text style={{color:T.text,fontWeight:"700"}}>{(LANGUAGES.find(l=>l.code===lang)||LANGUAGES[0]).flag} {lang.toUpperCase()}</Text>
             </TouchableOpacity>
           </View>
+          <Modal visible={showLangPicker} transparent animationType="slide"><View style={styles.modalBg5D}><View style={styles.modal5D}>
+            <Text style={styles.modalTitle5D}>🌐 {t("lang_label")}</Text>
+            <ScrollView style={{maxHeight:360}}>
+              {LANGUAGES.map(l=>(
+                <TouchableOpacity key={l.code} onPress={()=>{ setLang(l.code); setShowLangPicker(false); }} style={{flexDirection:"row",alignItems:"center",paddingVertical:12,borderBottomWidth:1,borderBottomColor:"#F1F3F5"}}>
+                  <Text style={{fontSize:16,flex:1}}>{l.flag}  {l.label}</Text>
+                  {lang===l.code && <Text style={{fontSize:16}}>✓</Text>}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.secondary5D} onPress={()=>setShowLangPicker(false)}><Text style={styles.secondary5DT}>Fermer</Text></TouchableOpacity>
+          </View></View></Modal>
           <Banner color={BANNERS.auth.color} icon={BANNERS.auth.icon} style={styles.hero5D} radius={24}>
             <View style={styles.hero5DOverlay}><Text style={styles.hero5DTitle}>{t("welcome_title")}</Text><Text style={styles.hero5DSub}>{t("welcome_sub")}</Text></View>
           </Banner>
@@ -1648,9 +1838,12 @@ export default function App(){
 
       <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
         <Text style={[styles.cardTitle5D,{color:T.text}]}>🌐 {t("lang_label")}</Text>
-        <View style={{flexDirection:"row",gap:8,marginTop:8}}>
-          <TouchableOpacity onPress={()=>setLang("fr")} style={[styles.cat5D,lang==="fr"&&styles.cat5DActive]}><Text style={lang==="fr"?styles.cat5DActiveT:styles.cat5DT}>🇫🇷 Français</Text></TouchableOpacity>
-          <TouchableOpacity onPress={()=>setLang("en")} style={[styles.cat5D,lang==="en"&&styles.cat5DActive]}><Text style={lang==="en"?styles.cat5DActiveT:styles.cat5DT}>🇬🇧 English</Text></TouchableOpacity>
+        <View style={{flexDirection:"row",flexWrap:"wrap",gap:8,marginTop:8}}>
+          {LANGUAGES.map(l=>(
+            <TouchableOpacity key={l.code} onPress={()=>setLang(l.code)} style={[styles.cat5D,lang===l.code&&styles.cat5DActive]}>
+              <Text style={lang===l.code?styles.cat5DActiveT:styles.cat5DT}>{l.flag} {l.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
