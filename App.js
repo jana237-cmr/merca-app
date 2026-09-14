@@ -286,6 +286,30 @@ async function apiGetReviewsForTarget(targetUserId){
 // pendant que l'utilisateur remplit le formulaire, pour que le serveur soit déjà prêt.
 function apiWakeUp(){ fetch(`${API_BASE}/products`).catch(()=>{}); }
 
+// ---- Multi-comptes : garder plusieurs comptes connectés sur le même
+// téléphone, et basculer de l'un à l'autre sans repasser par le code SMS ----
+const ACCOUNTS_KEY = "merca_accounts_list";
+async function getSavedAccountsList(){
+  try{
+    const raw = await SecureStore.getItemAsync(ACCOUNTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+async function upsertSavedAccountInList(account){
+  // account = { phone, accessToken, user }
+  const list = await getSavedAccountsList();
+  const filtered = list.filter(a=>a.phone!==account.phone);
+  filtered.push(account);
+  await SecureStore.setItemAsync(ACCOUNTS_KEY, JSON.stringify(filtered)).catch(()=>{});
+  return filtered;
+}
+async function removeSavedAccountFromList(phone){
+  const list = await getSavedAccountsList();
+  const filtered = list.filter(a=>a.phone!==phone);
+  await SecureStore.setItemAsync(ACCOUNTS_KEY, JSON.stringify(filtered)).catch(()=>{});
+  return filtered;
+}
+
 // Inscrit le téléphone pour recevoir de vraies notifications (même app fermée).
 // Ne fonctionne que sur une vraie app installée, jamais dans Expo Go pendant
 // les tests - échoue silencieusement dans ce cas, sans gêner le reste de l'app.
@@ -461,6 +485,9 @@ export default function App(){
   const [accessToken,setAccessToken]=useState(null);
   const [otpStep,setOtpStep]=useState("form"); // "form" = saisie infos, "code" = saisie du code reçu
   const [authMode,setAuthMode]=useState("register"); // "register" = créer un compte, "login" = compte déjà existant
+  // ---- Multi-comptes ----
+  const [savedAccounts,setSavedAccounts]=useState([]); // liste des comptes gardés sur ce téléphone
+  const [showAccountSwitcher,setShowAccountSwitcher]=useState(false);
   const [otpCode,setOtpCode]=useState("");
   const [authLoading,setAuthLoading]=useState(false);
   const [authError,setAuthError]=useState("");
@@ -566,6 +593,9 @@ export default function App(){
       // téléphone (Keychain iOS / Keystore Android) - plus sûr qu'un simple fichier
       const savedToken = await SecureStore.getItemAsync("merca_access_token").catch(()=>null);
       if(savedToken) setAccessToken(savedToken);
+      // Multi-comptes : recharge la liste des comptes déjà gardés sur ce téléphone
+      const accountsList = await getSavedAccountsList();
+      setSavedAccounts(accountsList);
     }catch(e){ /* SIMULATION - lecture échouée, valeurs par défaut conservées */ }
     setReady(true);
   })(); },[]);
@@ -737,10 +767,14 @@ export default function App(){
 
       try{ const w=await apiGetWallet(token); balance=Number(w.balance); }catch(e){}
 
-      setUser({ id:updated.id, name:updated.name||regName.trim(), phone:updated.phone, city:updated.city||regCity, roles:updated.roles||["client"], verifiedRoles:updated.verifiedRoles||[], avatarUri:null, guest:false, createdAt:Date.now(), shopName:updated.shopName, vehicule:updated.vehicule, bureau:updated.bureau, domaine:updated.domaine, isAdmin:!!updated.isAdmin });
+      const newUserObj = { id:updated.id, name:updated.name||regName.trim(), phone:updated.phone, city:updated.city||regCity, roles:updated.roles||["client"], verifiedRoles:updated.verifiedRoles||[], avatarUri:null, guest:false, createdAt:Date.now(), shopName:updated.shopName, vehicule:updated.vehicule, bureau:updated.bureau, domaine:updated.domaine, isAdmin:!!updated.isAdmin };
+      setUser(newUserObj);
       setWallet(balance);
       setWalletHistory(h=> h.length?h:[{id:"h0",type:"Portefeuille (solde réel du serveur)",amount:balance,icon:"🧪",color:"#888"}]);
       setRegName(""); setRegPhone(""); setRegExtra(""); setRegRole(null); setRegReferralCode(""); setOtpCode(""); setOtpStep("form");
+      // Multi-comptes : garde ce compte dans la liste pour pouvoir y revenir sans se reconnecter
+      const updatedList = await upsertSavedAccountInList({ phone:newUserObj.phone, accessToken:token, user:newUserObj });
+      setSavedAccounts(updatedList);
     }catch(e){ setAuthError(e.message); }
     setAuthLoading(false);
   };
@@ -789,6 +823,32 @@ export default function App(){
     await SecureStore.deleteItemAsync("merca_access_token").catch(()=>{});
     setUser(null); setAccessToken(null); setProducts(INITIAL_PRODUCTS); setServices([]); setOrders([]); setBookings([]); setWallet(0); setPoints(0); setOrDate(null);
     setWalletHistory([]); setWalletPin(await hashPin("1234")); setFavorites([]); setDark(false); setNotifEnabled(true); setReviews([]); setMessages([]); setDisputes([]); home();
+  });
+
+  // ---- Multi-comptes : basculer / ajouter / retirer un compte ----
+  const switchToAccount=(account)=>{
+    setAccessToken(account.accessToken);
+    SecureStore.setItemAsync("merca_access_token", account.accessToken).catch(()=>{});
+    setUser(account.user);
+    // Recharge le solde réel du portefeuille pour ce compte (peut avoir changé depuis)
+    apiGetWallet(account.accessToken).then(w=>setWallet(Number(w.balance))).catch(()=>{});
+    setShowAccountSwitcher(false);
+    home();
+  };
+  const addAnotherAccount=()=>{
+    // Le compte actif reste dans la liste (déjà sauvegardé) - on affiche juste
+    // l'écran de connexion/inscription pour en ajouter un nouveau.
+    setShowAccountSwitcher(false);
+    setAccessToken(null);
+    setUser(null);
+  };
+  const removeSavedAccount=(phone)=> confirm("Retirer ce compte","Il ne sera plus proposé dans la liste de bascule rapide - tu devras te reconnecter avec le code SMS pour le récupérer.",async()=>{
+    const updatedList = await removeSavedAccountFromList(phone);
+    setSavedAccounts(updatedList);
+    if(user?.phone===phone){
+      SecureStore.deleteItemAsync("merca_access_token").catch(()=>{});
+      setAccessToken(null); setUser(null); home();
+    }
   });
 
   // ---- Photo de profil (avatar) ----
@@ -1565,6 +1625,26 @@ export default function App(){
         {!user.guest && <TouchableOpacity style={styles.secondary5D} onPress={openAccountEdit}><Text style={styles.secondary5DT}>Modifier mes informations</Text></TouchableOpacity>}
         {user.guest && <TouchableOpacity style={styles.buy5D} onPress={()=>setUser(null)}><Text style={styles.buy5DT}>Créer un compte complet</Text></TouchableOpacity>}
       </View>
+
+      {!user.guest && (
+        <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
+          <Text style={[styles.cardTitle5D,{color:T.text}]}>🔀 Mes comptes</Text>
+          <Text style={styles.settingsSub}>Bascule entre tes comptes sans avoir à te reconnecter à chaque fois.</Text>
+          {savedAccounts.map(acc=>(
+            <View key={acc.phone} style={{flexDirection:"row",alignItems:"center",marginTop:10}}>
+              <TouchableOpacity style={{flex:1,flexDirection:"row",alignItems:"center",gap:10}} onPress={()=>acc.phone!==user.phone && switchToAccount(acc)}>
+                <Avatar user={acc.user} size={36}/>
+                <View style={{flex:1}}>
+                  <Text style={{color:T.text,fontWeight:"800",fontSize:13}}>{acc.user.name}{acc.phone===user.phone?" (actif)":""}</Text>
+                  <Text style={styles.settingsSub}>{acc.phone}</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={()=>removeSavedAccount(acc.phone)} style={{padding:8}}><Text style={{fontSize:16}}>✕</Text></TouchableOpacity>
+            </View>
+          ))}
+          <TouchableOpacity style={styles.secondary5D} onPress={addAnotherAccount}><Text style={styles.secondary5DT}>➕ Ajouter un compte</Text></TouchableOpacity>
+        </View>
+      )}
 
       <View style={[styles.card5DLarge,{backgroundColor:T.card}]}>
         <Text style={[styles.cardTitle5D,{color:T.text}]}>🌐 {t("lang_label")}</Text>
