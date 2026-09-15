@@ -1371,7 +1371,7 @@ export default function App(){
           <View style={[styles.exactResult5D,{backgroundColor:T.card}]}>
             <Text style={styles.exactTitle}>✅ Produit trouvé - Prix réel d'abord</Text>
             {filteredExact.slice(0,1).map(p=>{ const com=Math.round(p.price*R.FRAIS_PRODUIT); return (
-              <View key={p.id} style={styles.exactCard5D}><Image source={{uri:p.img}} style={styles.exactImg}/><View style={{flex:1}}><Text style={styles.exactName}>{p.name}</Text><Text style={styles.exactPrice}>{money(p.price)} PRIX RÉEL</Text><Text style={styles.exactDetail}>Produit {money(p.price)} + 3,3% {money(com)} + Liv {R.BASE}F</Text></View></View>
+              <View key={p.id} style={styles.exactCard5D}><Image source={{uri:p.img}} style={styles.exactImg}/><View style={{flex:1}}><Text style={styles.exactName}>{p.name}</Text><Text style={styles.exactPrice}>{money(p.price)} PRIX RÉEL</Text><Text style={styles.exactDetail}>Produit {money(p.price)} + 2% {money(com)} + Liv {R.BASE}F</Text></View></View>
             );})}
             <View style={{flexDirection:'row',gap:8,marginTop:10}}>
               <TouchableOpacity style={styles.btnPrimary5D} onPress={()=>{ setSelected(filteredExact[0]); nav("product"); }}><Text style={styles.btnPrimary5DT}>Voir produit</Text></TouchableOpacity>
@@ -1414,7 +1414,7 @@ export default function App(){
             <Text style={[styles.productName5D,{color:T.text}]}>{p.name}</Text>
             <View style={styles.priceBlock5D}>
               <Text style={styles.productPrice5D}>Produit: {money(p.price)} PRIX RÉEL</Text>
-              <Text style={styles.comPrice5D}>Com 3,3% = {money(com)}</Text>
+              <Text style={styles.comPrice5D}>Com 2% = {money(com)}</Text>
               <Text style={styles.totalPrice5D}>Total {money(tot)}</Text>
             </View>
             {p.stock<=0 && <View style={styles.lock5D}><Text style={styles.lock5DT}>❌ Rupture de stock</Text></View>}
