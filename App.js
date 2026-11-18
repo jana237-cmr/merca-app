@@ -62,7 +62,7 @@ const IMG = {
   bureau:"https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=400",
 };
 
-const R = { BLOQUE:50, FRAIS_PRODUIT:0.02, FRAIS_SERVICE:0.20, BASE:1500, SPLIT_LIVREUR:600, SPLIT_MARCHAND:450, SPLIT_MERCA:450, BONUS_LIVRAISON:777, POINTS_INSCRIPTION:3000, ARGENT:5000, OR:11000, OR_CYCLE_MOIS:9 };
+const R = { BLOQUE:50, FRAIS_PRODUIT:0.02, FRAIS_SERVICE:0.20, BASE:1500, SPLIT_LIVREUR:600, SPLIT_MARCHAND:450, SPLIT_MERCA:450, POINTS_PAR_LIVRAISON:0.10, POINTS_LIVREUR_ACTIVATION:1000, POINTS_PRO_ACTIVATION:500, POINTS_INSCRIPTION:5000, ARGENT:10000, OR:15000, OR_CYCLE_MOIS:9 };
 
 // ---- Connexion au vrai serveur (backend) MERCA hébergé sur Render ----
 const API_BASE = "https://merca-backend-flwv.onrender.com";
@@ -280,6 +280,31 @@ async function apiGetReviewsForTarget(targetUserId){
   const res = await fetch(`${API_BASE}/reviews/target/${targetUserId}`);
   if(!res.ok) throw new Error("Impossible de charger les avis");
   return res.json(); // { avg, count, reviews }
+}
+// ---- Support réel (messagerie + litiges), côté serveur ----
+async function apiSendMessage(token, threadId, body){
+  const res = await fetch(`${API_BASE}/support/messages`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify({ threadId, body }) });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message ? (Array.isArray(data.message)?data.message.join(", "):data.message) : "Impossible d'envoyer le message");
+  return data;
+}
+async function apiGetMessages(token, threadId){
+  const res = await fetch(`${API_BASE}/support/messages/${threadId}`, { headers:{ Authorization:`Bearer ${token}` } });
+  const data = await res.json().catch(()=>([]));
+  if(!res.ok) throw new Error(data.message || "Impossible de charger les messages");
+  return data;
+}
+async function apiCreateDispute(token, threadId, reason, description){
+  const res = await fetch(`${API_BASE}/support/disputes`, { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify({ threadId, reason, description }) });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.message ? (Array.isArray(data.message)?data.message.join(", "):data.message) : "Impossible d'envoyer la réclamation");
+  return data;
+}
+async function apiGetThreadDisputes(token, threadId){
+  const res = await fetch(`${API_BASE}/support/disputes/${threadId}`, { headers:{ Authorization:`Bearer ${token}` } });
+  const data = await res.json().catch(()=>([]));
+  if(!res.ok) throw new Error(data.message || "Impossible de charger les réclamations");
+  return data;
 }
 // Réveille le serveur dès l'ouverture de l'app (plan gratuit Render = mise en veille
 // après inactivité, jusqu'à 50-90s pour redémarrer). Appelée tout de suite au chargement,
@@ -938,7 +963,11 @@ export default function App(){
           if(regRole==="pro"){ extra.bureau=regExtra.trim(); extra.domaine=regDomaine; }
           try{ updated = await apiAddRole(token, { role:regRole, ...extra }); }catch(e){}
         }
-        setPoints(R.POINTS_INSCRIPTION);
+        setPoints(p=>{
+          if(regRole==="livreur") return R.POINTS_INSCRIPTION+R.POINTS_LIVREUR_ACTIVATION;
+          if(regRole==="commercant"||regRole==="pro") return R.POINTS_INSCRIPTION+R.POINTS_PRO_ACTIVATION;
+          return R.POINTS_INSCRIPTION;
+        });
       }
       // En mode "Se connecter" : on garde le profil déjà existant tel quel côté
       // serveur (nom, ville, rôles) - on ne réécrit rien par-dessus.
@@ -965,16 +994,21 @@ export default function App(){
     setPoints(0); setWallet(0); setWalletHistory([]);
   };
 
-  const confirmAddRole=()=>{
-    if(!roleModal) return;
+  const confirmAddRole=async()=>{
+    if(!roleModal || !accessToken) return;
     if(!roleExtra.trim()) return Alert.alert("Erreur", `Le champ "${ROLES_INFO[roleModal].champ}" est requis`);
     const extra={};
     if(roleModal==="commercant") extra.shopName=roleExtra.trim();
     if(roleModal==="livreur") extra.vehicule=roleExtra.trim();
     if(roleModal==="pro"){ extra.bureau=roleExtra.trim(); extra.domaine=roleDomaine; }
-    setUser(u=>({ ...u, roles:[...new Set([...u.roles, roleModal])], ...extra }));
-    setRoleModal(null); setRoleExtra("");
-    Alert.alert("Rôle activé", `Espace ${ROLES_INFO[roleModal].label} disponible - SIMULATION`);
+    try{
+      const updated = await apiAddRole(accessToken, { role:roleModal, ...extra });
+      setUser(u=>({ ...u, roles:updated.roles||[...new Set([...u.roles, roleModal])], ...extra }));
+      if(roleModal==="livreur") setPoints(p=>p+R.POINTS_LIVREUR_ACTIVATION); // bonus unique à l'activation du rôle livreur
+      if(roleModal==="commercant"||roleModal==="pro") setPoints(p=>p+R.POINTS_PRO_ACTIVATION); // bonus unique à l'activation du rôle commerçant/pro
+      setRoleModal(null); setRoleExtra("");
+      Alert.alert("Rôle activé", `Espace ${ROLES_INFO[roleModal].label} disponible`);
+    }catch(e){ Alert.alert("Erreur", e.message); }
   };
 
   const openAccountEdit=()=>{ setAccName(user.name); setAccPhone(user.phone); setAccCity(user.city); setShowAccountEdit(true); };
@@ -1082,14 +1116,14 @@ export default function App(){
   };
 
   const confirmReception=(order)=>{
-    confirm(`Confirmer réception - Code ${order.codeLivraison}`,`Débloque les fonds vers le commerçant/livreur - +${R.BONUS_LIVRAISON} pts`,async()=>{
+    confirm(`Confirmer réception - Code ${order.codeLivraison}`,`Débloque les fonds vers le commerçant/livreur - +${R.POINTS_PAR_LIVRAISON} pts`,async()=>{
       if(!accessToken) return;
       try{
         const updated = await apiConfirmOrder(accessToken, order.id);
         const u = serverToLocalOrder(updated);
         setOrders(os=>os.map(o=>o.id===order.id?u:o)); setSelectedOrder(u);
-        setPoints(p=>{ const np=p+R.BONUS_LIVRAISON; if(np>=R.OR && !orDate) setOrDate(Date.now()); return np; });
-        Alert.alert("Confirmé !",`+${R.BONUS_LIVRAISON} pts - Code ${order.codeLivraison}`);
+        setPoints(p=>{ const np=p+R.POINTS_PAR_LIVRAISON; if(np>=R.OR && !orDate) setOrDate(Date.now()); return np; });
+        Alert.alert("Confirmé !",`+${R.POINTS_PAR_LIVRAISON} pts - Code ${order.codeLivraison}`);
         nav("home");
       }catch(e){ Alert.alert("Erreur", e.message); }
     });
@@ -1214,18 +1248,44 @@ export default function App(){
     }catch(e){ Alert.alert("Erreur", e.message); }
   };
 
-  // ---- Support (messages + litige) ----
-  const threadMessages=(threadId)=> messages.filter(m=>m.threadId===threadId);
-  const sendMessage=()=>{
-    if(!messageInput.trim() || !supportThread) return;
-    setMessages(ms=>[...ms,{ id:uid("msg"), threadId:supportThread, from:"client", text:messageInput.trim(), at:Date.now() }]);
-    setMessageInput("");
+  // ---- Support réel (messages + litige), branché sur le serveur ----
+  const [supportLoading,setSupportLoading]=useState(false);
+  // Transforme un message serveur ({id, threadId, senderId, body, createdAt})
+  // vers le format utilisé par l'affichage ({id, threadId, from, text, at}).
+  const serverMsgToLocal=(m)=>({ id:m.id, threadId:m.threadId, from: m.senderId===user?.id ? "client" : "vendor", text:m.body, at:new Date(m.createdAt).getTime() });
+  const serverDisputeToLocal=(d)=>({ id:d.id, threadId:d.threadId, reason:d.reason, description:d.description, status:d.status, createdAt:new Date(d.createdAt).getTime() });
+  const loadSupportThread=async(threadId)=>{
+    if(!threadId || !accessToken) return;
+    setSupportLoading(true);
+    try{
+      const [msgs, disps] = await Promise.all([ apiGetMessages(accessToken, threadId), apiGetThreadDisputes(accessToken, threadId) ]);
+      setMessages(ms=> [ ...ms.filter(m=>m.threadId!==threadId), ...msgs.map(serverMsgToLocal) ]);
+      setDisputes(ds=> [ ...ds.filter(d=>d.threadId!==threadId), ...disps.map(serverDisputeToLocal) ]);
+    }catch(e){ Alert.alert("Erreur", e.message); }
+    finally{ setSupportLoading(false); }
   };
-  const submitDispute=()=>{
+  useEffect(()=>{
+    if(page==="support" && supportThread) loadSupportThread(supportThread);
+  },[page, supportThread]);
+  const threadMessages=(threadId)=> messages.filter(m=>m.threadId===threadId);
+  const sendMessage=async()=>{
+    if(!messageInput.trim() || !supportThread || !accessToken) return;
+    const text=messageInput.trim();
+    setMessageInput("");
+    try{
+      await apiSendMessage(accessToken, supportThread, text);
+      await loadSupportThread(supportThread);
+    }catch(e){ Alert.alert("Erreur", e.message); setMessageInput(text); }
+  };
+  const submitDispute=async()=>{
     if(!disputeDesc.trim()) return Alert.alert("Erreur","Décris le problème");
-    setDisputes(ds=>[{ id:uid("d"), threadId:supportThread, reason:disputeReason, description:disputeDesc.trim(), status:"Ouvert", createdAt:Date.now() },...ds]);
-    setShowDisputeForm(false); setDisputeDesc("");
-    Alert.alert("Réclamation envoyée","SIMULATION TEST - en cours de traitement");
+    if(!supportThread || !accessToken) return;
+    try{
+      await apiCreateDispute(accessToken, supportThread, disputeReason, disputeDesc.trim());
+      setShowDisputeForm(false); setDisputeDesc("");
+      await loadSupportThread(supportThread);
+      Alert.alert("Réclamation envoyée","Ton signalement a bien été transmis. Tu seras notifié de son avancement.");
+    }catch(e){ Alert.alert("Erreur", e.message); }
   };
 
   // ---- KYC ----
@@ -1481,7 +1541,7 @@ export default function App(){
     return (<Page title="Mon Espace" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <Text style={styles.ruleD5D}>Un espace grisé veut dire que ce rôle n'est pas encore activé — active-le depuis les Paramètres.</Text>
       <EspaceCard T={T} active={hasRole("commercant")} icon={ROLES_INFO.commercant.icon} color={ROLES_INFO.commercant.color} title="Boutique (Commerçant)" desc="Vendre des produits" onPress={()=>hasRole("commercant")?nav("merchant"):nav("settings")}/>
-      <EspaceCard T={T} active={hasRole("livreur")} icon={ROLES_INFO.livreur.icon} color={ROLES_INFO.livreur.color} title="Livraison" desc={`${R.SPLIT_LIVREUR}F + ${R.BONUS_LIVRAISON}pts`} onPress={()=>hasRole("livreur")?nav("courier"):nav("settings")}/>
+      <EspaceCard T={T} active={hasRole("livreur")} icon={ROLES_INFO.livreur.icon} color={ROLES_INFO.livreur.color} title="Livraison" desc={`${R.SPLIT_LIVREUR}F + ${R.POINTS_PAR_LIVRAISON}pts`} onPress={()=>hasRole("livreur")?nav("courier"):nav("settings")}/>
       <EspaceCard T={T} active={hasRole("pro")} icon={ROLES_INFO.pro.icon} color={ROLES_INFO.pro.color} title="Bureau Pro" desc="Vendre un service" onPress={()=>hasRole("pro")?nav("pro"):nav("settings")}/>
     </Page>);
   }
@@ -1642,7 +1702,8 @@ export default function App(){
     const msgs=threadMessages(supportThread);
     return (<Page title="Support" back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
       <View style={[styles.card5DLarge,{backgroundColor:T.card,maxHeight:300}]}>
-        {msgs.length===0 && <Text style={styles.settingsSub}>Aucun message. Écris ici en cas de question sur cette commande/réservation.</Text>}
+        {supportLoading && msgs.length===0 && <Text style={styles.settingsSub}>Chargement...</Text>}
+        {!supportLoading && msgs.length===0 && <Text style={styles.settingsSub}>Aucun message. Écris ici en cas de question sur cette commande/réservation.</Text>}
         {msgs.map(m=>(<View key={m.id} style={[styles.msgBubble5D, m.from==="client"?styles.msgClient5D:styles.msgVendor5D]}><Text style={[styles.msgText5D, m.from!=="client"&&{color:"#111"}]}>{m.text}</Text></View>))}
       </View>
       <View style={{flexDirection:"row",gap:8}}>
@@ -1682,7 +1743,7 @@ export default function App(){
   if(page==="courier"){
     if(!hasRole("livreur")) return <RoleGate T={T} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} info={ROLES_INFO.livreur} onActivate={()=>nav("settings")} actionLabel="Activer dans les Paramètres"/>;
     return (<Page title={`Livreur - ${R.SPLIT_LIVREUR}F`} back={back} home={home} nav={nav} page={page} orders={orders} bookings={bookings} T={T}>
-      <Banner color={BANNERS.courier.color} icon={BANNERS.courier.icon} style={styles.spaceHero5D} radius={22}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🚚 {user.vehicule} {isVerified("livreur")?"✅":""}</Text><Text style={styles.spaceSub5D}>{R.SPLIT_LIVREUR}F + {R.BONUS_LIVRAISON}pts par livraison confirmée</Text></View></Banner>
+      <Banner color={BANNERS.courier.color} icon={BANNERS.courier.icon} style={styles.spaceHero5D} radius={22}><View style={styles.spaceOverlay5D}><Text style={styles.spaceTitle5D}>🚚 {user.vehicule} {isVerified("livreur")?"✅":""}</Text><Text style={styles.spaceSub5D}>{R.SPLIT_LIVREUR}F + {R.POINTS_PAR_LIVRAISON}pts par livraison confirmée</Text></View></Banner>
       <Text style={[styles.section5D,{color:T.text}]}>📦 Livraisons disponibles</Text>
       {availableDeliveries.length===0 && <Text style={styles.settingsSub}>Aucune livraison disponible pour l'instant.</Text>}
       {availableDeliveries.map(o=>(<View key={o.id} style={[styles.delivery5D,{backgroundColor:T.card}]}><Text style={[styles.deliveryTitle5D,{color:T.text}]}>{o.product.name} - Code {o.codeLivraison}</Text><TouchableOpacity style={styles.buy5D} onPress={()=>doAdvance(o, async()=>{ await refreshAvailableDeliveries(); await refreshMyDeliveries(); })}><Text style={styles.buy5DT}>Prendre - {R.SPLIT_LIVREUR}F</Text></TouchableOpacity></View>))}
