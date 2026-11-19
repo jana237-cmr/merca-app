@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "MERCA",
+    "slug": "merca-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
+    },
+    "android": {
+      "package": "com.merca.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./icon.png",
+        "backgroundColor": "#0A0A0A"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.merca.app"
+    }
+  }
+}
