@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "MERCA",
+    "slug": "merca-app",
+    "owner": "merca01",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
+    },
+    "android": {
+      "package": "com.merca.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./icon.png",
+        "backgroundColor": "#0A0A0A"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.merca.app"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": false,
+            "enableShrinkResourcesInReleaseBuilds": false
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7f8ad865-69ea-4c89-9746-54c63955b115"
+      }
+    }
+  }
+  }
